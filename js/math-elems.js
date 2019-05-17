@@ -138,6 +138,7 @@ class FixedNumberOfChildElementsContainer extends Container {
     }
     this.constructor._names.forEach((name, i) => {
       this['_' + name] = args[i];
+      this._childHasBeenAdded(args[i]);
     });
   }
 

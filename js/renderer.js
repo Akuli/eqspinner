@@ -95,4 +95,14 @@ export class Renderer {
     this._renderedElements.set(mathElemsElem, domElem);
     return domElem;
   }
+
+  setSelectedElements(coreElements) {
+    for (const domElem of this._renderedElements.values()) {
+      domElem.classList.remove('selected');
+    }
+
+    for (const coreElem of coreElements) {
+      this._renderedElements.get(coreElem).classList.add('selected');
+    }
+  }
 }

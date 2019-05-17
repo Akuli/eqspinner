@@ -1,5 +1,7 @@
 .math-elem {
     font-family: sans;
+    -moz-user-select: none;
+    user-select: none;
 }
 
 div.math-elem-Sum, div.math-elem-Product, div.math-paren-container {
@@ -31,15 +33,7 @@ div.math-elem-Power > *:last-child {
     font-size: smaller;
 }
 
-img.math-lparen {
-    transform: rotate(90deg);
-}
-img.math-rparen {
-    transform: rotate(-90deg);
-}
-img.math-lparen, img.math-rparen {
-    width: auto;
-    height: 0.6ex;
-    margin-left: -0.8ex;
-    margin-right: -0.8ex;
+/* this matches the parens */
+.math-paren-container > span:first-child, .math-paren-container > span:last-child {
+    font-size: 2.4ex;
 }

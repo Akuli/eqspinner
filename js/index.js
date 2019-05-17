@@ -18,11 +18,11 @@ document.addEventListener('DOMContentLoaded', () => {
     {
       elem: new core.Sum([
         {
-          elem: new core.Symbol('x'),
+          elem: new core.Power(new core.Symbol('x'), new core.IntConstant(2)),
           sign: '+',
         },
         {
-          elem: new core.IntConstant(1),
+          elem: new core.Power(new core.IntConstant(1), new core.IntConstant(2)),
           sign: '-',
         },
       ]),
@@ -55,6 +55,10 @@ document.addEventListener('DOMContentLoaded', () => {
     },
   ]);
   console.log(expression.toString());
+  window.e=expression;    // for debugging
+
+  const simpleSum = expression.getChildElements()[1];
+  simpleSum.replace(simpleSum.getChildElements()[0], new core.Symbol('y'));
 
   const div = document.getElementById('equation');
   const renderer = new Renderer(div);

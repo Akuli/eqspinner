@@ -20,12 +20,12 @@ function createParenContainer(wrappedElement) {
   const containerDiv = document.createElement('div');
   containerDiv.classList.add('math-paren-container');
 
-  const lParen = document.createElement('img');
-  const rParen = document.createElement('img');
+  const lParen = document.createElement('span');
+  const rParen = document.createElement('span');
   lParen.classList.add('math-lparen');
   rParen.classList.add('math-rparen');
-  lParen.src = 'images/paren.svg';
-  rParen.src = 'images/paren.svg';
+  lParen.textContent = '(';
+  rParen.textContent = ')';
 
   containerDiv.appendChild(lParen);
   containerDiv.appendChild(wrappedElement);
@@ -34,12 +34,6 @@ function createParenContainer(wrappedElement) {
   return containerDiv;
 }
 
-function createParenContainerIfNeeded(coreParentElem, coreChildElem, domChildElem) {
-  if (core.needsParens(coreParentElem, coreChildElem)) {
-    return createParenContainer(domChildElem);
-  }
-  return domChildElem;
-}
 
 export class Renderer {
   constructor() {
@@ -61,15 +55,14 @@ export class Renderer {
 
     if (coreElem instanceof core.Product) {
       domElem = document.createElement('div');
-      // TODO: parens
-      coreElem.getSubElements()
+      coreElem.getChildElements()
         .map(coreChildElem => this.renderWithParensIfNeeded(coreElem, coreChildElem))
         .forEach(childDom => domElem.appendChild(childDom));
     }
 
     else if (coreElem instanceof core.Sum) {
       domElem = document.createElement('div');
-      coreElem.getSubElementsAndSigns()
+      coreElem.getChildElementsAndSigns()
         .flatMap(elemSign => [
           createSumSignSpan(elemSign.sign),
           this.renderWithParensIfNeeded(coreElem, elemSign.elem),

@@ -1,1 +1,0 @@
-paren.svg: https://commons.wikimedia.org/wiki/File:Parenthesis_under.svg

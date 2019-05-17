@@ -1,52 +1,52 @@
-import * as core from './core.js';
+import * as mathElems from './math-elems.js';
 import { Renderer } from './renderer.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-  // x^(x^2) - 2x + x - 1
-  const expression = new core.Sum([
+
+  const expression = new mathElems.Sum([
     {
-      elem: new core.Power(
-        new core.Power(new core.Symbol('x'), new core.IntConstant(2)),
-        new core.Power(new core.Symbol('y'), new core.IntConstant(2)),
+      elem: new mathElems.Power(
+        new mathElems.Power(new mathElems.Symbol('x'), new mathElems.IntConstant(2)),
+        new mathElems.Power(new mathElems.Symbol('y'), new mathElems.IntConstant(2)),
       ),
       sign: '+',
     },
     {
-      elem: new core.Product([ new core.IntConstant(2), new core.Symbol('x') ]),
+      elem: new mathElems.Product([ new mathElems.IntConstant(2), new mathElems.Symbol('x') ]),
       sign: '-',
     },
     {
-      elem: new core.Sum([
+      elem: new mathElems.Sum([
         {
-          elem: new core.Power(new core.Symbol('x'), new core.IntConstant(2)),
+          elem: new mathElems.Power(new mathElems.Symbol('x'), new mathElems.IntConstant(2)),
           sign: '+',
         },
         {
-          elem: new core.Power(new core.IntConstant(1), new core.IntConstant(2)),
+          elem: new mathElems.Power(new mathElems.IntConstant(1), new mathElems.IntConstant(2)),
           sign: '-',
         },
       ]),
       sign: '-',
     },
     {
-      elem: new core.Product([
-        new core.Sum([
+      elem: new mathElems.Product([
+        new mathElems.Sum([
           {
-            elem: new core.Symbol('x'),
+            elem: new mathElems.Symbol('x'),
             sign: '+',
           },
           {
-            elem: new core.Symbol('y'),
+            elem: new mathElems.Symbol('y'),
             sign: '+',
           },
         ]),
-        new core.Sum([
+        new mathElems.Sum([
           {
-            elem: new core.Symbol('x'),
+            elem: new mathElems.Symbol('x'),
             sign: '+',
           },
           {
-            elem: new core.Symbol('y'),
+            elem: new mathElems.Symbol('y'),
             sign: '-',
           },
         ]),
@@ -55,10 +55,10 @@ document.addEventListener('DOMContentLoaded', () => {
     },
   ]);
   console.log(expression.toString());
-  window.e=expression;    // for debugging
 
-  const simpleSum = expression.getChildElements()[1];
-  simpleSum.replace(simpleSum.getChildElements()[0], new core.Symbol('y'));
+  const simpleSum = expression.getChildElements()[2];
+  simpleSum.replace(simpleSum.getChildElements()[0], new mathElems.Symbol('y'));
+  console.log(simpleSum+'');
 
   const div = document.getElementById('equation');
   const renderer = new Renderer(div);

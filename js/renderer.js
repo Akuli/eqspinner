@@ -1,4 +1,4 @@
-import * as core from './core.js';
+import * as mathElems from './math-elems.js';
 
 
 function createSumSignSpan(sign) {
@@ -37,62 +37,62 @@ function createParenContainer(wrappedElement) {
 
 export class Renderer {
   constructor() {
-    // keys are core elements, values are dom elements
+    // keys are mathElems elements, values are dom elements
     this._renderedElements = new Map();
     this._parenElements = new Map();
   }
 
-  renderWithParensIfNeeded(coreParentElem, coreChildElem) {
-    const domChildElem = this.render(coreChildElem);
-    if (core.needsParens(coreParentElem, coreChildElem)) {
+  renderWithParensIfNeeded(mathElemsParentElem, mathElemsChildElem) {
+    const domChildElem = this.render(mathElemsChildElem);
+    if (mathElems.needsParens(mathElemsParentElem, mathElemsChildElem)) {
       return createParenContainer(domChildElem);
     }
     return domChildElem;
   }
 
-  render(coreElem) {
+  render(mathElemsElem) {
     let domElem;
 
-    if (coreElem instanceof core.Product) {
+    if (mathElemsElem instanceof mathElems.Product) {
       domElem = document.createElement('div');
-      coreElem.getChildElements()
-        .map(coreChildElem => this.renderWithParensIfNeeded(coreElem, coreChildElem))
+      mathElemsElem.getChildElements()
+        .map(mathElemsChildElem => this.renderWithParensIfNeeded(mathElemsElem, mathElemsChildElem))
         .forEach(childDom => domElem.appendChild(childDom));
     }
 
-    else if (coreElem instanceof core.Sum) {
+    else if (mathElemsElem instanceof mathElems.Sum) {
       domElem = document.createElement('div');
-      coreElem.getChildElementsAndSigns()
+      mathElemsElem.getChildElementsAndSigns()
         .flatMap(elemSign => [
           createSumSignSpan(elemSign.sign),
-          this.renderWithParensIfNeeded(coreElem, elemSign.elem),
+          this.renderWithParensIfNeeded(mathElemsElem, elemSign.elem),
         ])
         .forEach(childDom => domElem.appendChild(childDom));
     }
 
-    else if (coreElem instanceof core.Symbol) {
+    else if (mathElemsElem instanceof mathElems.Symbol) {
       domElem = document.createElement('span');
-      domElem.textContent = coreElem.name;
+      domElem.textContent = mathElemsElem.name;
     }
 
-    else if (coreElem instanceof core.IntConstant) {
+    else if (mathElemsElem instanceof mathElems.IntConstant) {
       domElem = document.createElement('span');
-      domElem.textContent = coreElem.jsNumber+'';
+      domElem.textContent = mathElemsElem.jsNumber+'';
     }
 
-    else if (coreElem instanceof core.Power) {
+    else if (mathElemsElem instanceof mathElems.Power) {
       domElem = document.createElement('div');
-      domElem.appendChild(this.renderWithParensIfNeeded(coreElem, coreElem.base));
-      domElem.appendChild(this.renderWithParensIfNeeded(coreElem, coreElem.exponent));
+      domElem.appendChild(this.renderWithParensIfNeeded(mathElemsElem, mathElemsElem.base));
+      domElem.appendChild(this.renderWithParensIfNeeded(mathElemsElem, mathElemsElem.exponent));
     }
 
     else {
-      throw new Error("unknown element type: " + coreElem.constructor.name);
+      throw new Error("unknown element type: " + mathElemsElem.constructor.name);
     }
 
     domElem.classList.add('math-elem');
-    domElem.classList.add('math-elem-' + coreElem.constructor.name);
-    this._renderedElements.set(coreElem, domElem);
+    domElem.classList.add('math-elem-' + mathElemsElem.constructor.name);
+    this._renderedElements.set(mathElemsElem, domElem);
     return domElem;
   }
 }

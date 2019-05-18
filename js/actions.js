@@ -1,6 +1,11 @@
 import * as mathElems from  './math-elems.js';
 
 
+export const ActionKind = {
+  SINGLE_ELEM: 1,
+};
+
+
 // the functions return a new Selection.select() array, or null for nothing done
 
 function unnest(elem) {
@@ -8,16 +13,19 @@ function unnest(elem) {
     return null;
   }
 
-  const first = elem.getChildElements()[0];
-  const rest = elem.getChildElements().slice(1);
+  const children = elem.getChildElements();
+  const childCopies = elem.getChildElements().map(el => el.copy());
   const parent = elem.parent;
   const firstIndex = parent.getChildElements().indexOf(elem);
 
-  parent.replace(elem, first.copy());
-  rest.forEach((notFirst, indexOffset) => {
-    parent.insertChildElement(firstIndex + 1 + indexOffset, notFirst.copy());
+  childCopies.forEach((childCopy, index) => {
+    if (index === 0) {
+      parent.replace(elem, childCopy);
+    } else {
+      parent.insertChildElement(firstIndex + index, childCopy);
+    }
   });
-  return [parent];
+  return childCopies;
 }
 
 
@@ -47,25 +55,32 @@ function expand(elem) {
 }
 
 
+class Action {
+  constructor(name, keyBinding, kind, callback) {
+    this.name = name;
+    this.keyBinding = keyBinding;
+    this._kind = kind;
+    this._callback = callback;
+  }
+
+  run(selection) {
+    if (this._kind === ActionKind.SINGLE_ELEM) {
+      const toSelect = selection.getSelectedElements()
+        .map(this._callback)
+        .filter(callbackResult => callbackResult !== null)
+        .flat(1);
+      if (toSelect.length === 0) {
+        return null;
+      }
+      return toSelect;
+    }
+
+    throw new Error("unknown kind " + this._kind);
+  }
+}
+
+
 export const ACTIONS = [
-  {
-    name: "Expand",
-    keyBinding: 'e',
-    callback: selection => {
-      if (selection.getSelectedElements().length !== 1) {
-        return false;
-      }
-      return expand(selection.getSelectedElements()[0]);
-    },
-  },
-  {
-    name: "Unnest",
-    keyBinding: 'u',
-    callback: selection => {
-      if (selection.getSelectedElements().length !== 1) {
-        return false;
-      }
-      return unnest(selection.getSelectedElements()[0]);
-    },
-  },
+  new Action('Expand', 'e', ActionKind.SINGLE_ELEM, expand),
+  new Action('Unnest', 'u', ActionKind.SINGLE_ELEM, unnest),
 ];

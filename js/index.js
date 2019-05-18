@@ -100,13 +100,13 @@ document.addEventListener('DOMContentLoaded', () => {
       throw new Error("multiple actions have same key binding: " + event.key);
     }
     if (matchingActions.length === 1) {
-      const cbResult = matchingActions[0].callback(selection);
-      if (cbResult === null) {
+      const toSelect = matchingActions[0].run(selection);
+      if (toSelect === null) {
         console.log('nothing done');
       } else {
         console.log('it did something');
         renderAgain();
-        selection.select(cbResult);
+        selection.select(toSelect);
       }
       return;
     }

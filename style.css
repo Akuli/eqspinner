@@ -30,6 +30,9 @@ div.math-elem-Sum > div:first-child > span.math-sign-plus {
 div.math-elem-Sum > div { margin-left: 0.2em; }
 span.math-sign { margin-right: 0.2em; }
 
+/* similarly for xy */
+div.math-elem-Product > * { margin-left: 0.05em; margin-right: 0.05em; }
+
 div.math-elem-Power > *:first-child {
     margin-top: 1.3ex;
 }

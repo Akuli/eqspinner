@@ -41,12 +41,12 @@ export class Renderer {
     this._renderedElements = new Map();
   }
 
-  _renderWithParensIfNeeded(mathParentElem, mathChildElem) {
-    const domChildElem = this.render(mathChildElem);
-    if (mathParentElem.childNeedsParens(mathChildElem)) {
-      return createParenContainer(domChildElem);
+  _renderWithParensIfNeeded(mathElem) {
+    const dom = this.render(mathElem);
+    if (mathElem.parent.childNeedsParens(mathElem)) {
+      return createParenContainer(dom);
     }
-    return domChildElem;
+    return dom;
   }
 
   render(mathElem) {
@@ -55,7 +55,7 @@ export class Renderer {
     if (mathElem instanceof mathElems.Product) {
       domElem = document.createElement('div');
       mathElem.getChildElements()
-        .map(mathChildElem => this._renderWithParensIfNeeded(mathElem, mathChildElem))
+        .map(mathChildElem => this._renderWithParensIfNeeded(mathChildElem))
         .forEach(childDom => domElem.appendChild(childDom));
     }
 
@@ -72,10 +72,8 @@ export class Renderer {
         }
 
         const div = document.createElement('div');
-        //if (!(sign === '+' && index === 0)) {
-          div.appendChild(createSumSignSpan(sign));
-        //}
-        div.appendChild(this._renderWithParensIfNeeded(displayedElem.parent, displayedElem));
+        div.appendChild(createSumSignSpan(sign));
+        div.appendChild(this._renderWithParensIfNeeded(displayedElem));
         domElem.appendChild(div);
 
         if (elem instanceof mathElems.Negation) {
@@ -87,7 +85,7 @@ export class Renderer {
     else if (mathElem instanceof mathElems.Negation) {
       domElem = document.createElement('div');
       domElem.appendChild(createSumSignSpan('-'));
-      domElem.appendChild(this._renderWithParensIfNeeded(mathElem, mathElem.inner));
+      domElem.appendChild(this._renderWithParensIfNeeded(mathElem.inner));
     }
 
     else if (mathElem instanceof mathElems.Symbol) {
@@ -102,8 +100,8 @@ export class Renderer {
 
     else if (mathElem instanceof mathElems.Power) {
       domElem = document.createElement('div');
-      domElem.appendChild(this._renderWithParensIfNeeded(mathElem, mathElem.base));
-      domElem.appendChild(this._renderWithParensIfNeeded(mathElem, mathElem.exponent));
+      domElem.appendChild(this._renderWithParensIfNeeded(mathElem.base));
+      domElem.appendChild(this._renderWithParensIfNeeded(mathElem.exponent));
     }
 
     else {

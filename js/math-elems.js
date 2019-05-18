@@ -15,7 +15,7 @@ design notes:
 */
 
 const Precedences = {
-  SUM: 0,
+  SUM_AND_NEGATION: 0,
   PRODUCT: 1,
   FRACTION: 2,
   POWER: 3,
@@ -23,8 +23,8 @@ const Precedences = {
 };
 
 
-function toStringWithParens(parentElem, childElem) {
-  if (parentElem.childNeedsParens(childElem)) {
+function toStringWithParens(childElem) {
+  if (childElem.parent.childNeedsParens(childElem)) {
     return '(' + childElem.toString() + ')';
   }
   return childElem.toString();
@@ -124,7 +124,7 @@ function addChildElementProperty(klass, propertyName) {
 // call _setNames() after subclassing
 class FixedNumberOfChildElementsContainer extends Container {
   static _setNames(nameArray) {
-    if (nameArray.length < 2) {
+    if (nameArray.length === 0) {
       throw new Error("not enough child element property names");
     }
 
@@ -160,6 +160,16 @@ class FixedNumberOfChildElementsContainer extends Container {
   }
 }
 
+
+export class Negation extends FixedNumberOfChildElementsContainer {
+  toString() {
+    return '-' + toStringWithParens(this.inner);
+  }
+}
+Negation._setNames(['inner']);
+Negation.precedence = Precedences.SUM_AND_NEGATION;
+
+
 export class Fraction extends FixedNumberOfChildElementsContainer {
   toString() {
     // the precedence stuff was designed for doing:
@@ -179,7 +189,7 @@ Fraction.precedence = Precedences.FRACTION;
 
 export class Power extends FixedNumberOfChildElementsContainer {
   toString() {
-    return toStringWithParens(this, this.base) + '^' + toStringWithParens(this, this.exponent);
+    return toStringWithParens(this.base) + '^' + toStringWithParens(this.exponent);
   }
 
   childNeedsParens(child) {
@@ -199,116 +209,87 @@ Power.precedence = Precedences.POWER;
 
 
 class List extends Container {
-  constructor() {
+  constructor(children) {
     super();
-    this._childObjects = [];    // may contain elements or something else, depends on subclass
+    if (children.length === 0) {
+      return this._createEmptyValue();
+    }
+    if (children.length === 1) {
+      return children[0];
+    }
+
+    this._children = [];
+    for (const child of children) {
+      this.appendChildElement(child);
+    }
   }
 
-  _getElement(childObject) {
-    throw new Error("wasn't overrided");
-  }
-
-  // should return a new object, and not mutate
-  _changeElement(childObject, element) {
-    throw new Error("wasn't overrided");
-  }
-
-  _createChildObject(...args) {
+  _createEmptyValue() {
     throw new Error("wasn't overrided");
   }
 
   getChildElements() {
-    return this._childObjects.map(childObject => this._getElement(childObject));
+    return this._children.slice();   // copy it
   }
 
-  insertChildElement(index, ...args) {
-    if (index < 0 || index > this._childObjects.length) {
+  insertChildElement(index, child) {
+    if (index < 0 || index > this._children.length) {
       throw new Error("invalid index: " + index);
     }
 
-    const childObject = this._createChildObject(...args);
-    this._childObjects.splice(index, 0, childObject);
-    this._childHasBeenAdded(this._getElement(childObject));
+    this._children.splice(index, 0, child);
+    this._childHasBeenAdded(child);
   }
 
-  appendChildElement(...args) {
-    this.insertChildElement(this._childObjects.length, ...args);
+  appendChildElement(child) {
+    this.insertChildElement(this._children.length, child);
   }
 
   replace(oldChild, newChild) {
-    const i = this.getChildElements().indexOf(oldChild);
+    const i = this._children.indexOf(oldChild);
     if (i === -1) {
       throw new Error("old child element not found: " + oldChild);
     }
 
     this._childWillBeRemoved(oldChild);
-    this._childObjects[i] = this._changeElement(this._childObjects[i], newChild);
+    this._children[i] = newChild;
     this._childHasBeenAdded(newChild);
   }
 }
 
 
 export class Product extends List {
-  constructor(childElements) {
-    super();
-    if (childElements.length === 0) {
-      return new IntConstant(1);
-    }
-    if (childElements.length === 1) {
-      return childElements[0];
-    }
-
-    for (const elem of childElements) {
-      this.appendChildElement(elem);
-    }
+  _createEmptyValue() {
+    return new IntConstant(1);
   }
 
-  _getElement(childObject) { return childObject; }
-  _changeElement(childObject, element) { return element; }
-  _createChildObject(element) { return element; }
-
   toString() {
-    return this.getChildElements()
-      .map(elem => toStringWithParens(this, elem))
-      .join('*');
+    return this.getChildElements().map(toStringWithParens).join('*');
   }
 }
 Product.precedence = Precedences.PRODUCT;
 
 
 // represents things separated with + or - characters
-// -x is represented as: new Sum([ { elem: x, sign: '-' } ])
+// x-y is represented as: new Sum([ x, new Negation(y) ])
 export class Sum extends List {
-  // elemsAndSigns should contain items like this:
-  // { elem: someMathElement, sign: '+' or '-' }
-  constructor(elemsAndSigns) {
-    super();
-
-    if (elemsAndSigns.length === 0) {
-      return new IntConstant(0);
-    }
-    if (elemsAndSigns.length === 1 && elemsAndSigns[0].sign === '+') {
-      return elemsAndSigns[0].elem;
-    }
-
-    for (const { elem, sign } of elemsAndSigns) {
-      this.appendChildElement(elem, sign);
-    }
+  _createEmptyValue() {
+    return new IntConstant(0);
   }
 
-  _getElement(childObject) { return childObject.elem; }
-  _changeElement(childObject, element) { return { elem: element, sign: childObject.sign }; }
-  _createChildObject(element, sign) { return { elem: element, sign: sign }; }
-
-  getChildElementsAndSigns() {
-    return this._childObjects.slice();    // copy it
+  childNeedsParens(child) {
+    if (child instanceof Negation) {
+      return false;
+    }
+    return super.childNeedsParens(child);
   }
 
   toString() {
-    return this.getChildElementsAndSigns()
-      .flatMap(elemSign => [ elemSign.sign, toStringWithParens(this, elemSign.elem) ])
+    return this.getChildElements()
+      .map(elem => (elem instanceof Negation) ? ['-', elem.inner] : ['+', elem])
+      .flatMap(( [sign,elem] ) => [sign, toStringWithParens(elem)])
       .filter((string, index) => !(index === 0 && string === '+'))
       .join(' ');
   }
 }
-Sum.precedence = Precedences.SUM;
+Sum.precedence = Precedences.SUM_AND_NEGATION;

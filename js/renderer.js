@@ -39,7 +39,6 @@ export class Renderer {
   constructor() {
     // keys are mathElems elements, values are dom elements
     this._renderedElements = new Map();
-    this._parenElements = new Map();
   }
 
   _renderWithParensIfNeeded(mathParentElem, mathChildElem) {
@@ -62,12 +61,33 @@ export class Renderer {
 
     else if (mathElem instanceof mathElems.Sum) {
       domElem = document.createElement('div');
-      mathElem.getChildElementsAndSigns()
-        .flatMap(elemSign => [
-          createSumSignSpan(elemSign.sign),
-          this._renderWithParensIfNeeded(mathElem, elemSign.elem),
-        ])
-        .forEach(childDom => domElem.appendChild(childDom));
+      mathElem.getChildElements().forEach(( elem, index ) => {
+        let sign, displayedElem;
+        if (elem instanceof mathElems.Negation) {
+          sign = '-';
+          displayedElem = elem.inner;
+        } else {
+          sign = '+';
+          displayedElem = elem;
+        }
+
+        const div = document.createElement('div');
+        //if (!(sign === '+' && index === 0)) {
+          div.appendChild(createSumSignSpan(sign));
+        //}
+        div.appendChild(this._renderWithParensIfNeeded(displayedElem.parent, displayedElem));
+        domElem.appendChild(div);
+
+        if (elem instanceof mathElems.Negation) {
+          this._renderedElements.set(elem, div);
+        }
+      });
+    }
+
+    else if (mathElem instanceof mathElems.Negation) {
+      domElem = document.createElement('div');
+      domElem.appendChild(createSumSignSpan('-'));
+      domElem.appendChild(this._renderWithParensIfNeeded(mathElem, mathElem.inner));
     }
 
     else if (mathElem instanceof mathElems.Symbol) {
@@ -98,11 +118,11 @@ export class Renderer {
 
   setSelectedElements(coreElements) {
     for (const domElem of this._renderedElements.values()) {
-      domElem.classList.remove('selected');
+      domElem.classList.remove('math-elem-selected');
     }
 
     for (const coreElem of coreElements) {
-      this._renderedElements.get(coreElem).classList.add('selected');
+      this._renderedElements.get(coreElem).classList.add('math-elem-selected');
     }
   }
 }

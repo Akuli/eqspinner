@@ -4,7 +4,7 @@
     user-select: none;
 }
 
-div.math-elem-Sum, div.math-elem-Product, div.math-paren-container {
+div.math-elem-Sum, div.math-elem-Product, div.math-paren-container, div.math-elem-Sum > div {
     display: flex;
     flex-direction: row;
     align-items: baseline;
@@ -20,8 +20,8 @@ div.math-elem-Sum > span.math-sign {
     margin-right: 0.2em;
 }
 
-/* display x^2+2x instead of +x^2+2x */
-div.math-elem-Sum > span.math-sign-plus:first-child {
+/* display a+b instead of +a+b */
+div.math-elem-Sum > div:first-child > span.math-sign-plus {
     display: none;
 }
 
@@ -38,6 +38,6 @@ div.math-elem-Power > *:last-child {
     font-size: 2.4ex;
 }
 
-.math-elem.selected {
+.math-elem-selected {
     background-color: yellow;
 }

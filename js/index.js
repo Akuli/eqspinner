@@ -5,59 +5,36 @@ import { Selection, SelectError } from './selection.js';
 document.addEventListener('DOMContentLoaded', () => {
 
   const expression = new mathElems.Sum([
-    {
-      elem: new mathElems.Power(
+    new mathElems.Power(
+      new mathElems.Power(new mathElems.Symbol('x'), new mathElems.IntConstant(2)),
+      new mathElems.Power(new mathElems.Symbol('y'), new mathElems.IntConstant(2)),
+    ),
+    new mathElems.Negation(
+      new mathElems.Product([ new mathElems.IntConstant(2), new mathElems.Symbol('x') ]),
+    ),
+    new mathElems.Negation(
+      new mathElems.Sum([
         new mathElems.Power(new mathElems.Symbol('x'), new mathElems.IntConstant(2)),
-        new mathElems.Power(new mathElems.Symbol('y'), new mathElems.IntConstant(2)),
-      ),
-      sign: '+',
-    },
-    {
-      elem: new mathElems.Product([ new mathElems.IntConstant(2), new mathElems.Symbol('x') ]),
-      sign: '-',
-    },
-    {
-      elem: new mathElems.Sum([
-        {
-          elem: new mathElems.Power(new mathElems.Symbol('x'), new mathElems.IntConstant(2)),
-          sign: '+',
-        },
-        {
-          elem: new mathElems.Power(new mathElems.IntConstant(1), new mathElems.IntConstant(2)),
-          sign: '-',
-        },
+        new mathElems.Negation(
+          new mathElems.Power(new mathElems.IntConstant(1), new mathElems.Negation(new mathElems.IntConstant(2))),
+        ),
       ]),
-      sign: '-',
-    },
-    {
-      elem: new mathElems.Product([
-        new mathElems.Sum([
-          {
-            elem: new mathElems.Symbol('x'),
-            sign: '+',
-          },
-          {
-            elem: new mathElems.Symbol('y'),
-            sign: '+',
-          },
-        ]),
-        new mathElems.Sum([
-          {
-            elem: new mathElems.Symbol('x'),
-            sign: '+',
-          },
-          {
-            elem: new mathElems.Symbol('y'),
-            sign: '-',
-          },
-        ]),
+    ),
+    new mathElems.Product([
+      new mathElems.Sum([
+        new mathElems.Symbol('x'),
+        new mathElems.Symbol('y'),
       ]),
-      sign: '+',
-    },
+      new mathElems.Sum([
+        new mathElems.Symbol('x'),
+        new mathElems.Negation(new mathElems.Symbol('y')),
+      ]),
+    ]),
   ]);
   console.log(expression.toString());
 
-  const simpleSum = expression.getChildElements()[2];
+  const simpleSum = expression.getChildElements()[2].inner;
+  console.log(simpleSum+'');
   simpleSum.replace(simpleSum.getChildElements()[0], new mathElems.Symbol('y'));
   console.log(simpleSum+'');
 

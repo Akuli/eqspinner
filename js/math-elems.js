@@ -4,7 +4,8 @@ design notes:
   * in the MathElement representing x+x, the x's are DIFFERENT objects
     this way there's no need to keep track of a MathElement and its location
     because each MathElement is in only one location
-    both x's are created with "new Symbol('x')", which must be done twice
+    both x objects are created with "new Symbol('x')", which must be done twice
+    there is a .equals() method that can be used for comparing the x objects
   * all MathElements except Container are immutable
     or at least you should never mutate them
     or at least you should never mutate anything else than .parent
@@ -39,6 +40,21 @@ export class MathElement {
   getChildElements() {
     return [];
   }
+
+  // this doesn't get called automagically, only with explicit something.equals(something)
+  //
+  // must be an equivalence relation; that is, for all MathElements a,b,c:
+  //  * a.equals(a)                                       (reflexive)
+  //  * if a.equals(b), then b.equals(a)                  (symmetric)
+  //  * if a.equals(b) and b.equals(c), then a.equals(c)  (transitive)
+  equals(that) {
+    throw new Error("wasn't overrided");
+  }
+
+  // a.copy().equals(a) must be always true, but a.copy() === a must be false
+  copy() {
+    throw new Error("wasn't overrided");
+  }
 }
 MathElement.precedence = Precedences.NEVER_PARENTHESIZE;
 
@@ -51,6 +67,14 @@ export class Symbol extends MathElement {
 
   toString() {
     return this.name;
+  }
+
+  equals(that) {
+    return (that instanceof Symbol) && this.name === that.name;
+  }
+
+  copy() {
+    return new Symbol(this.name);
   }
 }
 
@@ -70,9 +94,23 @@ export class IntConstant extends MathElement {
   toString() {
     return this.jsNumber + '';
   }
+
+  equals(that) {
+    return (that instanceof IntConstant) && this.name === that.name;
+  }
+
+  copy() {
+    return new IntConstant(this.jsNumber);
+  }
 }
 
 
+function arrayEquals(a, b, key) {
+  return a.length === b.length && a.every((junk, i) => key(a[i], b[i]));
+}
+
+
+// subclasses must provide a .copy(), and that must do a recursive copy
 class Container extends MathElement {
   getChildElements() {
     throw new Error("getChildElements wasn't overrided");
@@ -101,6 +139,12 @@ class Container extends MathElement {
       throw new Error("childNeedsParens called for non-child");
     }
     return (this.constructor.precedence >= child.constructor.precedence);
+  }
+
+  equals(that) {
+    // instanceof might not be symmetric because inheritance, that's why === with constructors
+    return (this.constructor === that.constructor &&
+            arrayEquals( this.getChildElements(), that.getChildElements(), (a,b) => a.equals(b) ));
   }
 }
 
@@ -158,6 +202,10 @@ class FixedNumberOfChildElementsContainer extends Container {
     }
     throw new Error("child element not found: " + oldChild);
   }
+
+  copy() {
+    return new this.constructor(...( this.getChildElements().map(elem => elem.copy()) ));
+  }
 }
 
 
@@ -208,7 +256,7 @@ Power._setNames(['base', 'exponent']);
 Power.precedence = Precedences.POWER;
 
 
-class List extends Container {
+export class List extends Container {
   constructor(children) {
     super();
     if (children.length === 0) {
@@ -254,6 +302,10 @@ class List extends Container {
     this._childWillBeRemoved(oldChild);
     this._children[i] = newChild;
     this._childHasBeenAdded(newChild);
+  }
+
+  copy() {
+    return new this.constructor( this.getChildElements().map(elem => elem.copy()) );
   }
 }
 

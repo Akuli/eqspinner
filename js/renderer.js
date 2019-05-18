@@ -49,6 +49,10 @@ export class Renderer {
     return dom;
   }
 
+  unrender() {
+    this._renderedElements.clear();
+  }
+
   render(mathElem) {
     let domElem;
 

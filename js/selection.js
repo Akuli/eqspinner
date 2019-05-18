@@ -18,6 +18,15 @@ function arrayEquals(array1, array2) {
 }
 
 
+function getParentsRecursive(elem) {
+  const result = [];
+  for (let el = elem; el !== null; el = el.parent) {
+    result.push(el);
+  }
+  return result;
+}
+
+
 // this is thrown for errors that can be caused by the user
 // plain Error is used for other, "unexpected" errors
 export class SelectError extends Error { }
@@ -29,7 +38,10 @@ export class Selection extends EventTarget {
       throw new Error("expected the parent-of-everything element, but got " + parentOfEverythingElement);
     }
     this._parentOfEverythingElement = parentOfEverythingElement;
-    this._selectedElements = [parentOfEverythingElement];
+
+    this._selectedElements = null;
+    this.parentySelections = null;
+    this.select([parentOfEverythingElement]);
   }
 
   getSelectedElements() {
@@ -49,6 +61,9 @@ export class Selection extends EventTarget {
     if (array[0].parent === null &&
         !(array.length === 1 && array[0] === this._parentOfEverythingElement)) {
       throw new SelectError(array[0] + " is not the parent-of-everything element or a child of another element");
+    }
+    if (!array.every( elem => getParentsRecursive(elem).includes(this._parentOfEverythingElement) )) {
+      throw new SelectError("not all elements have the parent-of-everything element as parent or parent-of-parent or etc.");
     }
     if (array.length === 1) {
       return array.slice();   // make copy
@@ -97,6 +112,9 @@ export class Selection extends EventTarget {
 
     this._selectedElements = this._validateElementArray(elementArray);
     this.dispatchEvent(new CustomEvent('Select'));
+
+    this.parentySelections = [this._selectedElements]
+      .concat( getParentsRecursive(this._selectedElements[0]).map(parent => [parent]) );
   }
 
   selectChild() {

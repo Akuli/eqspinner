@@ -1,6 +1,8 @@
 import * as mathElems from './math-elems.js';
 import { Renderer } from './renderer.js';
 import { Selection, SelectError } from './selection.js';
+import { ACTIONS } from './actions.js';
+
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -32,44 +34,83 @@ document.addEventListener('DOMContentLoaded', () => {
     ]),
   ]);
   console.log(expression.toString());
-
-  const simpleSum = expression.getChildElements()[2].inner;
-  console.log(simpleSum+'');
-  simpleSum.replace(simpleSum.getChildElements()[0], new mathElems.Symbol('y'));
-  console.log(simpleSum+'');
+  if (!expression.equals(expression)) {
+    throw new Error("equals is broken");
+  }
+  if (!expression.copy().equals(expression)) {
+    throw new Error("copy is broken");
+  }
 
   const div = document.getElementById('equation');
   const renderer = new Renderer(div);
   div.appendChild(renderer.render(expression));
 
-  const selection = new Selection(expression);
+  let selection = new Selection(expression);
   selection.addEventListener('Select', () => renderer.setSelectedElements(selection.getSelectedElements()));
   renderer.setSelectedElements(selection.getSelectedElements());
 
-  document.addEventListener('keydown', event => {
-    try {
-      switch(event.key) {
-        case 'ArrowUp':
-          selection.selectChild();
-          break;
-        case 'ArrowDown':
-          selection.selectParent();
-          break;
-        case 'ArrowLeft':
-          selection.selectPreviousOrNextSibling(-1);
-          break;
-        case 'ArrowRight':
-          selection.selectPreviousOrNextSibling(1);
-          break;
-        default:
-          break;
-      }
-    } catch(e) {
-      if (e instanceof SelectError) {
-        console.log(e.message);
-      } else {
-        throw e;
+  function renderAgain() {
+    div.innerHTML = '';
+    div.appendChild(renderer.render(expression));
+
+    for (const possibleNewSelection of selection.parentySelections) {
+      try {
+        selection.select(possibleNewSelection);
+        console.log('renderAgain done');
+        return;
+      } catch(e) {
+        if (!(e instanceof SelectError)) {
+          throw e;
+        }
       }
     }
+
+    throw new Error("cannot select anything for some reason");
+  }
+
+  function createSelecterCallback(func) {
+    return () => {
+      try {
+        func();
+      } catch(e) {
+        if (!(e instanceof SelectError)) {
+          throw e;
+        }
+      }
+    };
+  }
+
+  const keyBindings = {
+    'ArrowUp': createSelecterCallback(() => selection.selectChild()),
+    'ArrowDown': createSelecterCallback(() => selection.selectParent()),
+    'ArrowLeft': createSelecterCallback(() => selection.selectPreviousOrNextSibling(-1)),
+    'ArrowRight': createSelecterCallback(() => selection.selectPreviousOrNextSibling(+1)),
+    'r': () => renderAgain(),
+  };
+
+  document.addEventListener('keydown', event => {
+    if (keyBindings[event.key] !== undefined) {
+      keyBindings[event.key]();
+      event.preventDefault();
+      return;
+    }
+
+    const matchingActions = ACTIONS.filter(act => act.keyBinding === event.key);
+    if (matchingActions.length > 2) {
+      throw new Error("multiple actions have same key binding: " + event.key);
+    }
+    if (matchingActions.length === 1) {
+      const cbResult = matchingActions[0].callback(selection);
+      if (cbResult === null) {
+        console.log('nothing done');
+      } else {
+        console.log('it did something');
+        renderAgain();
+        selection.select(cbResult);
+      }
+      return;
+    }
+
+    console.log("unbound key: " + event.key);
   });
 });

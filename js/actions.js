@@ -8,27 +8,6 @@ export const ActionKind = {
 
 // the functions return a new Selection.select() array, or null for nothing done
 
-function unnest(elem) {
-  if (!( (elem.parent instanceof mathElems.List) && (elem instanceof elem.parent.constructor) )) {
-    return null;
-  }
-
-  const children = elem.getChildElements();
-  const childCopies = elem.getChildElements().map(el => el.copy());
-  const parent = elem.parent;
-  const firstIndex = parent.getChildElements().indexOf(elem);
-
-  childCopies.forEach((childCopy, index) => {
-    if (index === 0) {
-      parent.replace(elem, childCopy);
-    } else {
-      parent.insertChildElement(firstIndex + index, childCopy);
-    }
-  });
-  return childCopies;
-}
-
-
 function expand(elem) {
   // a(b + c)d  -->  abd + acd
   if (elem instanceof mathElems.Product) {
@@ -52,6 +31,27 @@ function expand(elem) {
   }
 
   return null;
+}
+
+
+function unnest(elem) {
+  if (!( (elem.parent instanceof mathElems.List) && (elem instanceof elem.parent.constructor) )) {
+    return null;
+  }
+
+  const children = elem.getChildElements();
+  const childCopies = elem.getChildElements().map(el => el.copy());
+  const parent = elem.parent;
+  const firstIndex = parent.getChildElements().indexOf(elem);
+
+  childCopies.forEach((childCopy, index) => {
+    if (index === 0) {
+      parent.replace(elem, childCopy);
+    } else {
+      parent.insertChildElement(firstIndex + index, childCopy);
+    }
+  });
+  return childCopies;
 }
 
 

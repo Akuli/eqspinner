@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
       new mathElems.Sum([
         new mathElems.Power(new mathElems.Symbol('x'), new mathElems.IntConstant(2)),
         new mathElems.Negation(
-          new mathElems.Power(new mathElems.IntConstant(1), new mathElems.Negation(new mathElems.IntConstant(2))),
+          new mathElems.Power(new mathElems.IntConstant(1), new mathElems.IntConstant(-2)),
         ),
       ]),
     ),

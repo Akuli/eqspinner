@@ -62,7 +62,7 @@ export class IntConstant extends MathElement {
       throw new Error("not an integer: " + jsNumber);
     }
     if (jsNumber < 0) {
-      return new Sum([ { elem: new IntConstant(Math.abs(jsNumber)), sign: '-' } ]);
+      return new Negation(new IntConstant(Math.abs(jsNumber)));
     }
     this.jsNumber = jsNumber;
   }

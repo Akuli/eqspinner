@@ -59,6 +59,7 @@ export class MathElement {
 MathElement.precedence = Precedences.NEVER_PARENTHESIZE;
 
 
+// e.g. x
 export class Symbol extends MathElement {
   constructor(name) {
     super();
@@ -79,6 +80,7 @@ export class Symbol extends MathElement {
 }
 
 
+// e.g. 3, but not -3, that would be: new Negation(new IntConstant(3))
 export class IntConstant extends MathElement {
   constructor(jsNumber) {
     super();
@@ -209,6 +211,7 @@ class FixedNumberOfChildElementsContainer extends Container {
 }
 
 
+// -something
 export class Negation extends FixedNumberOfChildElementsContainer {
   toString() {
     return '-' + toStringWithParens(this.inner);
@@ -218,6 +221,7 @@ Negation._setNames(['inner']);
 Negation.precedence = Precedences.SUM_AND_NEGATION;
 
 
+// something/something
 export class Fraction extends FixedNumberOfChildElementsContainer {
   toString() {
     // the precedence stuff was designed for doing:
@@ -235,6 +239,7 @@ Fraction._setNames(['numer', 'denom']);
 Fraction.precedence = Precedences.FRACTION;
 
 
+// something^something
 export class Power extends FixedNumberOfChildElementsContainer {
   toString() {
     return toStringWithParens(this.base) + '^' + toStringWithParens(this.exponent);
@@ -310,6 +315,7 @@ export class List extends Container {
 }
 
 
+// something*something*...*something
 export class Product extends List {
   _createEmptyValue() {
     return new IntConstant(1);
@@ -322,7 +328,7 @@ export class Product extends List {
 Product.precedence = Precedences.PRODUCT;
 
 
-// represents things separated with + or - characters
+// something + something + ... + something
 // x-y is represented as: new Sum([ x, new Negation(y) ])
 export class Sum extends List {
   _createEmptyValue() {

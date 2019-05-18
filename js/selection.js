@@ -29,7 +29,55 @@ function getParentsRecursive(elem) {
 
 // this is thrown for errors that can be caused by the user
 // plain Error is used for other, "unexpected" errors
-export class SelectError extends Error { }
+export class SelectError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = this.constructor.name;
+  }
+}
+
+
+function cleanUpElementArray(array) {
+  // remove duplicates and nested elements, sort consistently
+  const result = Array.from(new Set(array));
+  const nestedInsideSomethingElseThatIsAlsoSelected = new Set();
+
+  result.sort((a, b) => {
+    const aParents = getParentsRecursive(a);
+    const bParents = getParentsRecursive(b);
+    let commonParent;
+    while (aParents[aParents.length - 1] === bParents[bParents.length - 1]) {
+      // aParents.pop() and bParents.pop() return the same thing
+      commonParent = aParents.pop();
+      bParents.pop();
+    }
+
+    if (aParents.length === 0 && bParents.length === 0) {
+      throw new Error("duplicates didn't get removed");
+    }
+
+    // if these run, then indexOf will return -1 at the end for either a or b, but not both
+    // this creates a consistent ordering: nonNegative - (-1) > 0, (-1) - nonNegative < 0
+    if (aParents.length === 0) {
+      nestedInsideSomethingElseThatIsAlsoSelected.add(b);
+    }
+    if (bParents.length === 0) {
+      nestedInsideSomethingElseThatIsAlsoSelected.add(a);
+    }
+
+    const children = commonParent.getChildElements();
+    if (children.indexOf(undefined) !== -1) {
+      throw new Error("there is an 'undefined' child element");
+    }
+
+    const aParent = aParents[aParents.length - 1];    // may be undefined
+    const bParent = bParents[bParents.length - 1];    // may be undefined
+    return children.indexOf(aParent) - children.indexOf(bParent);
+  });
+
+  return result.filter(elem => !nestedInsideSomethingElseThatIsAlsoSelected.has(elem));
+}
+
 
 export class Selection extends EventTarget {
   constructor(parentOfEverythingElement) {
@@ -40,68 +88,11 @@ export class Selection extends EventTarget {
     this._parentOfEverythingElement = parentOfEverythingElement;
 
     this._selectedElements = null;
-    this.parentySelections = null;
-    this.select([parentOfEverythingElement]);
+    this.select([]);
   }
 
   getSelectedElements() {
     return this._selectedElements.slice();   // copy it
-  }
-
-  // returns a valid array
-  _validateElementArray(array) {
-    if (array.includes(null)) {
-      throw new Error("unexpected null");
-    }
-
-    if (array.length === 0) {
-      throw new SelectError("can't select []");
-    }
-
-    if (array[0].parent === null &&
-        !(array.length === 1 && array[0] === this._parentOfEverythingElement)) {
-      throw new SelectError(array[0] + " is not the parent-of-everything element or a child of another element");
-    }
-    if (!array.every( elem => getParentsRecursive(elem).includes(this._parentOfEverythingElement) )) {
-      throw new SelectError("not all elements have the parent-of-everything element as parent or parent-of-parent or etc.");
-    }
-    if (array.length === 1) {
-      return array.slice();   // make copy
-    }
-
-    if (containsDuplicates(array)) {
-      throw new SelectError("selection array contains duplicate elements");
-    }
-    if (!allElementsAreSame(array.map(elem => elem.parent))) {
-      throw new SelectError("selection elements have different parents");
-    }
-
-    // if the array is not adjacent, then see if it can be rearranged to make it adjacent
-    // TODO: test this shit!
-    const theParent = array[0].parent;  // same for all elements, checked above
-    const childrenOfTheParent = theParent.getChildElements();   // superstitious optimization
-    const indexArray = array.map(child => childrenOfTheParent.indexOf(child));
-    if (indexArray.includes(-1) || containsDuplicates(indexArray)) {
-      throw new Error("oopsie doopsie woopsie hoopsie! something went wrong! ding dang dong!");
-    }
-    indexArray.sort((a,b) => (a-b));    // sort by numeric value, default would put '10' before '2'
-
-    if (array.length > 2) {
-      // check if indexArray is like [2,3,4] and not like [2,4,5] or something
-      // by looping over pairs
-      const pairs = indexArray.slice(0, -1).map((i, indexOfIndexLolThisIsMeta) => [ i, indexArray[indexOfIndexLolThisIsMeta+1] ]);
-      if (!pairs.every( ([i,j]) => i+1 === j )) {
-        throw new SelectError("elements are not adjacent");
-      }
-    }
-
-    const nicelySorted = indexArray.map(i => childrenOfTheParent[i]);
-
-    if (arrayEquals(nicelySorted, theParent.getChildElements())) {
-      // all child elements are selected
-      return [theParent];
-    }
-    return nicelySorted;
   }
 
   select(elementArray) {
@@ -110,50 +101,117 @@ export class Selection extends EventTarget {
       throw new Error("expected an array");
     }
 
-    this._selectedElements = this._validateElementArray(elementArray);
+    this._selectedElements = cleanUpElementArray(elementArray);
     this.dispatchEvent(new CustomEvent('Select'));
+  }
 
-    this.parentySelections = [this._selectedElements]
-      .concat( getParentsRecursive(this._selectedElements[0]).map(parent => [parent]) );
+  // runs callback(each selected element) and selects the elements it returns instead
+  // the callback should return an element, or an array of elements
+  selectionMap(callback) {
+    this.select(this._selectedElements.flatMap(callback));
+  }
+
+  selectParentOfEverythingElement() {
+    this.select([this._parentOfEverythingElement]);
+  }
+
+  _selectSomething() {
+    if (this._selectedElements.length === 0) {
+      this.selectParentOfEverythingElement();
+    }
   }
 
   selectChild() {
-    const children = this.getSelectedElements()[0].getChildElements();
-    if (children.length === 0) {
-      throw new SelectError("cannot go 'deeper'");
-    }
-    this.select([ children[0] ]);
+    this._selectSomething();
+    this.selectionMap(element => {
+      const children = element.getChildElements();
+      if (children.length === 0) {
+        return element;
+      }
+      return children[0];
+    });
   }
 
   selectParent() {
-    const parentToSelect = this.getSelectedElements()[0].parent;
-    if (parentToSelect === null) {
-      throw new SelectError("parentmost element is already selected");
-    }
-    this.select([parentToSelect]);
+    this._selectSomething();
+    this.selectionMap(element => (element.parent === null) ? element : element.parent);
   }
 
-  selectPreviousOrNextSibling(plusMinus1, addInsteadOfReplacing = false) {
-    const currentlySelected = this.getSelectedElements()[0];    // TODO: don't hard-code 0
-    if (currentlySelected.parent === null) {
-      throw new SelectError("no siblings");
+  selectPreviousOrNextSibling(plusMinus1, onlyForThisElement = null, selectMoreInsteadOfReplacing = false) {
+    this._selectSomething();
+
+    if (selectMoreInsteadOfReplacing) {
+      if (onlyForThisElement !== null) {
+        throw new Error("onlyForThisElement must be null when using selectMoreInsteadOfReplacing");
+      }
+      if (plusMinus1 === -1) {
+        onlyForThisElement = this._selectedElements[0];
+      } else {
+        onlyForThisElement = this._selectedElements[this._selectedElements.length - 1];
+      }
     }
 
-    const siblingArray = currentlySelected.parent.getChildElements();
-    const currentIndex = siblingArray.indexOf(currentlySelected);
-    if (currentIndex === -1) {
-      throw new Error("issues with .parent and .getChildElements()");
+    this.selectionMap(element => {
+      if (element.parent === null || (onlyForThisElement !== null && element !== onlyForThisElement)) {
+        return element;
+      }
+
+      const siblingArray = element.parent.getChildElements();
+      const currentIndex = siblingArray.indexOf(element);
+      if (currentIndex === -1) {
+        throw new Error("issues with .parent and .getChildElements()");
+      }
+
+      const newIndex = currentIndex + plusMinus1;
+      if (newIndex < 0 || newIndex >= siblingArray.length) {
+        return element;
+      }
+
+      if (selectMoreInsteadOfReplacing) {
+        return [ element, siblingArray[newIndex] ];
+      }
+      return siblingArray[newIndex];
+    });
+  }
+}
+
+
+// this thing does what happens when control is pressed and left,right arrow keys are used
+export class SelectMoreSiblingsManager {
+  constructor(selection) {
+    this._selection = selection;
+    this._moreMode = false;   // whether control is pressed
+    this._moreModeElement = null;
+  }
+
+  // ctrl pressed
+  beginMoreMode() {
+    console.log('begin more mode');
+    this._moreMode = true;
+    this._moreModeElement = null;
+  }
+
+  // ctrl released
+  endMoreMode() {
+    console.log('end more mode');
+    this._moreMode = false;
+    this._moreModeElement = null;
+  }
+
+  selectPreviousOrNextSibling(plusMinus1) {
+    if (!this._moreMode) {
+      this._selection.selectPreviousOrNextSibling(plusMinus1);
+      return;
     }
 
-    const newIndex = currentIndex + plusMinus1;
-    if (newIndex < 0 || newIndex >= siblingArray.length) {
-      throw new SelectError("already selected all the way to an end (don't know how to explain better)");
-    }
+    const selectedBefore = new Set(this._selection.getSelectedElements());
+    this._selection.selectPreviousOrNextSibling(plusMinus1, this._moreModeElement, (this._moreModeElement === null));
+    const selectedAfter = this._selection.getSelectedElements();
 
-    if (addInsteadOfReplacing) {
-      this.select([ currentlySelected, siblingArray[newIndex] ]);
-    } else {
-      this.select([ siblingArray[newIndex] ]);
+    const addedToSelection = selectedAfter.filter(elem => !selectedBefore.has(elem));
+    if (addedToSelection.length !== 0) {
+      [this._moreModeElement] = addedToSelection;
+      console.log(this._moreModeElement + '');
     }
   }
 }

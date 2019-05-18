@@ -1,32 +1,41 @@
 import * as mathElems from  './math-elems.js';
 
 
-export const ActionKind = {
-  SINGLE_ELEM: 1,
-};
-
-
+// in this code, callbackResult means one of:
+//    * null:                       nothing done
+//    * a math element:             same as wrapping it in an array of 1 element
+//    * an array of math elements:  something was done, these elements should be selected
+//
+// the callbacks can return any of these
 class Action {
-  constructor(name, keyBinding, kind, callback) {
+  constructor(kind, name, keyBinding, callback) {
+    this._kind = kind;
     this.name = name;
     this.keyBinding = keyBinding;
-    this._kind = kind;
     this._callback = callback;
+  }
+
+  static ofSingleElement(name, keyBinding, callback) {
+    return new this({ id: 'singleElement' }, name, keyBinding, callback);
+  }
+
+  static ofNChildElements(name, keyBinding, n, callback) {
+    return new this({ id: 'nChildElements', n: n }, name, keyBinding, callback);
   }
 
   // returns a Selection.select() argument array, or null for nothing done
   run(selection) {
-    if (this._kind === ActionKind.SINGLE_ELEM) {
+    if (this._kind.id === 'singleElement') {
       let somethingDone = false;
-      const toSelect = selection.getSelectedElements().map(elem => {
+      const toSelect = selection.getSelectedElements().flatMap(elem => {
         const callbackResult = this._callback(elem);
         if (callbackResult === null) {
-          return [elem];
+          return elem;
         }
 
         somethingDone = true;
         return callbackResult;
-      }).flat(1);
+      });
 
       if (!somethingDone) {
         // toSelect should have same content as selection.getSelectedElements()
@@ -35,12 +44,33 @@ class Action {
       return toSelect;
     }
 
-    throw new Error("unknown kind " + this._kind);
+    if (this._kind.id === 'nChildElements') {
+      const selected = selection.getSelectedElements();
+
+      // TODO: if user wants to swap x and y of xy, and has selected the whole xy
+      //       handle that correctly, and figure out how it generalizes for n > 2
+      if (selected.length !== this._kind.n) {
+        return null;
+      }
+
+      const parentSet = new Set(selected.map(el => el.parent));
+      if (parentSet.size !== 1) {
+        return null;
+      }
+
+      const callbackResult = this._callback(...parentSet, ...selected);
+      if (callbackResult === null) {
+        return null;
+      }
+      return [].concat(callbackResult);
+    }
+
+    throw new Error("unknown action kind: " + this._kind.id);
   }
 }
 
 
-const expand = new Action('Expand', 'e', ActionKind.SINGLE_ELEM, elem => {
+const expand = Action.ofSingleElement('Expand', 'e', elem => {
   // a(b + c)d  -->  abd + acd
   if (elem instanceof mathElems.Product) {
     const firstSumIndex = elem.getChildElements().findIndex(child => (child instanceof mathElems.Sum));
@@ -66,7 +96,7 @@ const expand = new Action('Expand', 'e', ActionKind.SINGLE_ELEM, elem => {
 });
 
 
-const unnest = new Action('Unnest', 'u', ActionKind.SINGLE_ELEM, elem => {
+const unnest = Action.ofSingleElement('Unnest', 'u', elem => {
   if (!( (elem.parent instanceof mathElems.List) && (elem instanceof elem.parent.constructor) )) {
     return null;
   }
@@ -87,7 +117,7 @@ const unnest = new Action('Unnest', 'u', ActionKind.SINGLE_ELEM, elem => {
 });
 
 
-const bringMinusToFront = new Action('Bring minus to front', 'b', ActionKind.SINGLE_ELEM, elem => {
+const bringMinusToFront = Action.ofSingleElement('Bring minus to front', 'b', elem => {
   if ( !(elem instanceof mathElems.Product)) {
     return null;
   }
@@ -105,8 +135,56 @@ const bringMinusToFront = new Action('Bring minus to front', 'b', ActionKind.SIN
 });
 
 
+const swap = Action.ofNChildElements('Swap', 's', 2, (parent, child1, child2) => {
+  if (!(parent instanceof mathElems.List)) {
+    return null;
+  }
+
+  const tempChild1 = new mathElems.IntConstant(0);
+  const tempChild2 = new mathElems.IntConstant(0);
+  parent.replace(child1, tempChild1);
+  parent.replace(child2, tempChild2);
+  parent.replace(tempChild1, child2);
+  parent.replace(tempChild2, child1);
+  return [child1, child2];
+});
+
+
+function minWithKey(array, key) {
+  // TODO: more efficient implementation without sorting the whole shit with a key function?
+  return array.slice().sort((a,b) => key(a) - key(b))[0];
+}
+
+const cancel = Action.ofNChildElements('Cancel', 'c', 2, (parent, child1, child2) => {
+  if (parent instanceof mathElems.Sum) {
+    if (!( ((child1 instanceof mathElems.Negation) && child1.inner.equals(child2)) ||
+           ((child2 instanceof mathElems.Negation) && child2.inner.equals(child1)) )) {
+      return null;
+    }
+  } else {    // TODO: division canceling
+    return null;
+  }
+
+  // try to find a neighbor element to select after removing
+  const childArray = parent.getChildElements();
+  const i1 = childArray.indexOf(child1);
+  const i2 = childArray.indexOf(child2);
+  const neighbors = new Set( [i1,i2].flatMap(i => [childArray[i-1], childArray[i+1]]) );
+  neighbors.delete(undefined);
+  neighbors.delete(child1);
+  neighbors.delete(child2);
+
+  const toSelect = (neighbors.size === 0) ? [] :
+    minWithKey(Array.from(neighbors), child=>childArray.indexOf(child));
+  parent.removeChildElements([ child1, child2 ]);
+  return toSelect;
+});
+
+
 export const ACTIONS = [
   expand,
   unnest,
   bringMinusToFront,
+  swap,
+  cancel,
 ];

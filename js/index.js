@@ -6,51 +6,53 @@ import { ACTIONS } from './actions.js';
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  const expression = new mathElems.Sum([
-    new mathElems.Power(
-      new mathElems.Power(new mathElems.Symbol('x'), new mathElems.IntConstant(2)),
-      new mathElems.Power(new mathElems.Symbol('y'), new mathElems.IntConstant(2)),
-    ),
-    new mathElems.Negation(
-      new mathElems.Product([ new mathElems.IntConstant(2), new mathElems.Symbol('x') ]),
-    ),
-    new mathElems.Negation(
-      new mathElems.Sum([
+  const math = new mathElems.EverythingContainer(
+    new mathElems.Sum([
+      new mathElems.Power(
         new mathElems.Power(new mathElems.Symbol('x'), new mathElems.IntConstant(2)),
-        new mathElems.Negation(
-          new mathElems.Power(new mathElems.IntConstant(1), new mathElems.IntConstant(-2)),
-        ),
+        new mathElems.Power(new mathElems.Symbol('y'), new mathElems.IntConstant(2)),
+      ),
+      new mathElems.Negation(
+        new mathElems.Product([ new mathElems.IntConstant(2), new mathElems.Symbol('x') ]),
+      ),
+      new mathElems.Negation(
+        new mathElems.Sum([
+          new mathElems.Power(new mathElems.Symbol('x'), new mathElems.IntConstant(2)),
+          new mathElems.Negation(
+            new mathElems.Power(new mathElems.IntConstant(1), new mathElems.IntConstant(-2)),
+          ),
+        ]),
+      ),
+      new mathElems.Product([
+        new mathElems.Sum([
+          new mathElems.Symbol('x'),
+          new mathElems.Symbol('y'),
+        ]),
+        new mathElems.Sum([
+          new mathElems.Symbol('x'),
+          new mathElems.Negation(new mathElems.Symbol('y')),
+        ]),
       ]),
-    ),
-    new mathElems.Product([
-      new mathElems.Sum([
-        new mathElems.Symbol('x'),
-        new mathElems.Symbol('y'),
-      ]),
-      new mathElems.Sum([
-        new mathElems.Symbol('x'),
-        new mathElems.Negation(new mathElems.Symbol('y')),
-      ]),
-    ]),
-  ]);
-  console.log(expression.toString());
-  if (!expression.equals(expression)) {
+    ])
+  );
+  console.log(math.toString());
+  if (!math.equals(math)) {
     throw new Error("equals is broken");
   }
-  if (!expression.copy().equals(expression)) {
+  if (!math.copy().equals(math)) {
     throw new Error("copy is broken");
   }
 
   const div = document.getElementById('equation');
   const renderer = new Renderer(div);
-  div.appendChild(renderer.render(expression));
+  div.appendChild(renderer.render(math));
 
-  const selection = new Selection(expression);
+  const selection = new Selection(math);
   selection.addEventListener('Select', () => renderer.setSelectedElements(selection.getSelectedElements()));
 
   function renderAgain() {
     div.innerHTML = '';
-    div.appendChild(renderer.render(expression));
+    div.appendChild(renderer.render(math));
   }
 
   const ctrlPressHelper = new SelectMoreSiblingsManager(selection);

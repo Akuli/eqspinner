@@ -16,6 +16,7 @@ design notes:
 */
 
 const Precedences = {
+  EVERYTHING_CONTAINER: -10,
   SUM_AND_NEGATION: 0,
   PRODUCT: 1,
   FRACTION: 2,
@@ -211,6 +212,16 @@ class FixedNumberOfChildElementsContainer extends Container {
 }
 
 
+// all elements are wrapped into one of these
+export class EverythingContainer extends FixedNumberOfChildElementsContainer {
+  toString() {
+    return this.content.toString();
+  }
+}
+EverythingContainer._setNames(['content']);
+EverythingContainer.precedence = Precedences.EVERYTHING_CONTAINER;
+
+
 // -something
 export class Negation extends FixedNumberOfChildElementsContainer {
   toString() {
@@ -296,6 +307,33 @@ export class List extends Container {
 
   appendChildElement(child) {
     this.insertChildElement(this._children.length, child);
+  }
+
+  removeChildElements(children) {
+    // see end of this method for reason
+    if (this.parent === null) {
+      throw new Error("cannot remove from a List that hasn't been added to a parent");
+    }
+
+    if (!children.every(child => this._children.includes(child))) {
+      throw new Error("child to remove not found, trying to remove: " + children);
+    }
+
+    children
+      .map(child => this._children.indexOf(child))
+      .sort((a,b) => b-a)   // biggest first
+      .forEach(i => {
+        this._childWillBeRemoved(this._children[i]);
+        this._children.splice(i, 1);
+      });
+
+    // because empty and 1-element Lists would create very annoying corner cases
+    if (this._children.length === 0) {
+      this.parent.replace(this, this._createEmptyValue());
+    }
+    if (this._children.length === 1) {
+      this.parent.replace(this, this._children[0]);
+    }
   }
 
   replace(oldChild, newChild) {

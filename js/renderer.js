@@ -56,7 +56,12 @@ export class Renderer {
   render(mathElem) {
     let domElem;
 
-    if (mathElem instanceof mathElems.Product) {
+    if (mathElem instanceof mathElems.EverythingContainer) {
+      domElem = document.createElement('div');
+      domElem.appendChild(this._renderWithParensIfNeeded(mathElem.content));
+    }
+
+    else if (mathElem instanceof mathElems.Product) {
       domElem = document.createElement('div');
       mathElem.getChildElements()
         .map(mathChildElem => this._renderWithParensIfNeeded(mathChildElem))

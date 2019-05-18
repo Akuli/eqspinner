@@ -1,3 +1,6 @@
+import * as mathElems from './math-elems.js';
+
+
 /*
 there are 3 kinds of selections:
   * 1 element selected
@@ -80,12 +83,15 @@ function cleanUpElementArray(array) {
 
 
 export class Selection extends EventTarget {
-  constructor(parentOfEverythingElement) {
+  constructor(everythingContainer) {
     super();
-    if (parentOfEverythingElement.parent !== null) {
-      throw new Error("expected the parent-of-everything element, but got " + parentOfEverythingElement);
+
+    // type checked because this is easy to get wrong
+    if (!(everythingContainer instanceof mathElems.EverythingContainer)) {
+      throw new Error("expected an EverythingContainer");
     }
-    this._parentOfEverythingElement = parentOfEverythingElement;
+
+    this._everythingContainer = everythingContainer;
 
     this._selectedElements = null;
     this.select([]);
@@ -112,7 +118,7 @@ export class Selection extends EventTarget {
   }
 
   selectParentOfEverythingElement() {
-    this.select([this._parentOfEverythingElement]);
+    this.select([this._everythingContainer.content]);
   }
 
   _selectSomething() {
@@ -134,7 +140,12 @@ export class Selection extends EventTarget {
 
   selectParent() {
     this._selectSomething();
-    this.selectionMap(element => (element.parent === null) ? element : element.parent);
+    this.selectionMap(element =>
+      (element.parent === null || element === this._everythingContainer.content) ?
+        element
+      :
+        element.parent
+    );
   }
 
   selectPreviousOrNextSibling(plusMinus1, onlyForThisElement = null, selectMoreInsteadOfReplacing = false) {

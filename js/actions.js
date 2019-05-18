@@ -135,6 +135,19 @@ const bringMinusToFront = Action.ofSingleElement('Bring minus to front', 'b', el
 });
 
 
+const bringMinusInside = Action.ofSingleElement('Undo bringing minus to front', 'B', elem => {
+  if (!( (elem instanceof mathElems.Negation) && (elem.inner instanceof mathElems.Product) )) {
+    return null;
+  }
+
+  const getsMinus = elem.inner.getChildElements()[0];
+  elem.inner.replace(getsMinus, new mathElems.Negation(getsMinus.copy()));
+  const productCopy = elem.inner.copy();
+  elem.parent.replace(elem, productCopy);
+  return productCopy;
+});
+
+
 const swap = Action.ofNChildElements('Swap', 's', 2, (parent, child1, child2) => {
   if (!(parent instanceof mathElems.List)) {
     return null;
@@ -185,6 +198,7 @@ export const ACTIONS = [
   expand,
   unnest,
   bringMinusToFront,
+  bringMinusInside,
   swap,
   cancel,
 ];

@@ -23,12 +23,8 @@ const Precedences = {
 };
 
 
-export function needsParens(parentElem, childElem) {
-  return (parentElem.constructor.precedence >= childElem.constructor.precedence);
-}
-
 function toStringWithParens(parentElem, childElem) {
-  if (needsParens(parentElem, childElem)) {
+  if (parentElem.childNeedsParens(childElem)) {
     return '(' + childElem.toString() + ')';
   }
   return childElem.toString();
@@ -98,6 +94,13 @@ class Container extends MathElement {
       throw new Error(`cannot remove the child element ${child}, it hasn't been added`);
     }
     child.parent = null;
+  }
+
+  childNeedsParens(child) {
+    if (child.parent !== this) {
+      throw new Error("childNeedsParens called for non-child");
+    }
+    return (this.constructor.precedence >= child.constructor.precedence);
   }
 }
 
@@ -177,6 +180,18 @@ Fraction.precedence = Precedences.FRACTION;
 export class Power extends FixedNumberOfChildElementsContainer {
   toString() {
     return toStringWithParens(this, this.base) + '^' + toStringWithParens(this, this.exponent);
+  }
+
+  childNeedsParens(child) {
+    if (child === this.exponent) {
+      /*
+                b             /  b \
+               a              \ a  /
+      display x   instead of x
+      */
+      return false;
+    }
+    return super.childNeedsParens(child);
   }
 }
 Power._setNames(['base', 'exponent']);

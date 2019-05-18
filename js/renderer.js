@@ -42,57 +42,57 @@ export class Renderer {
     this._parenElements = new Map();
   }
 
-  renderWithParensIfNeeded(mathElemsParentElem, mathElemsChildElem) {
-    const domChildElem = this.render(mathElemsChildElem);
-    if (mathElems.needsParens(mathElemsParentElem, mathElemsChildElem)) {
+  _renderWithParensIfNeeded(mathParentElem, mathChildElem) {
+    const domChildElem = this.render(mathChildElem);
+    if (mathParentElem.childNeedsParens(mathChildElem)) {
       return createParenContainer(domChildElem);
     }
     return domChildElem;
   }
 
-  render(mathElemsElem) {
+  render(mathElem) {
     let domElem;
 
-    if (mathElemsElem instanceof mathElems.Product) {
+    if (mathElem instanceof mathElems.Product) {
       domElem = document.createElement('div');
-      mathElemsElem.getChildElements()
-        .map(mathElemsChildElem => this.renderWithParensIfNeeded(mathElemsElem, mathElemsChildElem))
+      mathElem.getChildElements()
+        .map(mathChildElem => this._renderWithParensIfNeeded(mathElem, mathChildElem))
         .forEach(childDom => domElem.appendChild(childDom));
     }
 
-    else if (mathElemsElem instanceof mathElems.Sum) {
+    else if (mathElem instanceof mathElems.Sum) {
       domElem = document.createElement('div');
-      mathElemsElem.getChildElementsAndSigns()
+      mathElem.getChildElementsAndSigns()
         .flatMap(elemSign => [
           createSumSignSpan(elemSign.sign),
-          this.renderWithParensIfNeeded(mathElemsElem, elemSign.elem),
+          this._renderWithParensIfNeeded(mathElem, elemSign.elem),
         ])
         .forEach(childDom => domElem.appendChild(childDom));
     }
 
-    else if (mathElemsElem instanceof mathElems.Symbol) {
+    else if (mathElem instanceof mathElems.Symbol) {
       domElem = document.createElement('span');
-      domElem.textContent = mathElemsElem.name;
+      domElem.textContent = mathElem.name;
     }
 
-    else if (mathElemsElem instanceof mathElems.IntConstant) {
+    else if (mathElem instanceof mathElems.IntConstant) {
       domElem = document.createElement('span');
-      domElem.textContent = mathElemsElem.jsNumber+'';
+      domElem.textContent = mathElem.jsNumber+'';
     }
 
-    else if (mathElemsElem instanceof mathElems.Power) {
+    else if (mathElem instanceof mathElems.Power) {
       domElem = document.createElement('div');
-      domElem.appendChild(this.renderWithParensIfNeeded(mathElemsElem, mathElemsElem.base));
-      domElem.appendChild(this.renderWithParensIfNeeded(mathElemsElem, mathElemsElem.exponent));
+      domElem.appendChild(this._renderWithParensIfNeeded(mathElem, mathElem.base));
+      domElem.appendChild(this._renderWithParensIfNeeded(mathElem, mathElem.exponent));
     }
 
     else {
-      throw new Error("unknown element type: " + mathElemsElem.constructor.name);
+      throw new Error("unknown element type: " + mathElem.constructor.name);
     }
 
     domElem.classList.add('math-elem');
-    domElem.classList.add('math-elem-' + mathElemsElem.constructor.name);
-    this._renderedElements.set(mathElemsElem, domElem);
+    domElem.classList.add('math-elem-' + mathElem.constructor.name);
+    this._renderedElements.set(mathElem, domElem);
     return domElem;
   }
 

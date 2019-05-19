@@ -1,4 +1,5 @@
 import * as mathElems from './math-elems.js';
+import * as modalDialog from './modal-dialog.js';
 import { Renderer } from './renderer.js';
 import { Selection, SelectMoreSiblingsManager } from './selection.js';
 import { ACTIONS } from './actions.js';
@@ -83,6 +84,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   function handleEvent(upBool, event) {
+    if (modalDialog.isShowing()) {
+      return;
+    }
+
     let key;
     if (event.key === event.key.toLowerCase()) {  // e.g. 'a'
       key = event.key.toUpperCase();

@@ -70,7 +70,7 @@ class Action {
 }
 
 
-const expand = Action.ofSingleElement('Expand', 'e', elem => {
+const expand = Action.ofSingleElement('Expand', 'E', elem => {
   // a(b + c)d  -->  abd + acd
   if (elem instanceof mathElems.Product) {
     const firstSumIndex = elem.getChildElements().findIndex(child => (child instanceof mathElems.Sum));
@@ -96,7 +96,7 @@ const expand = Action.ofSingleElement('Expand', 'e', elem => {
 });
 
 
-const unnest = Action.ofSingleElement('Unnest', 'u', elem => {
+const unnest = Action.ofSingleElement('Unnest', 'U', elem => {
   if (!( (elem.parent instanceof mathElems.List) && (elem instanceof elem.parent.constructor) )) {
     return null;
   }
@@ -117,7 +117,7 @@ const unnest = Action.ofSingleElement('Unnest', 'u', elem => {
 });
 
 
-const bringMinusToFront = Action.ofSingleElement('Bring minus to front', 'b', elem => {
+const bringMinusToFront = Action.ofSingleElement('Bring minus to front', 'B', elem => {
   if ( !(elem instanceof mathElems.Product)) {
     return null;
   }
@@ -135,7 +135,7 @@ const bringMinusToFront = Action.ofSingleElement('Bring minus to front', 'b', el
 });
 
 
-const bringMinusInside = Action.ofSingleElement('Undo bringing minus to front', 'B', elem => {
+const bringMinusInside = Action.ofSingleElement('Undo bringing minus to front', 'Shift+B', elem => {
   if (!( (elem instanceof mathElems.Negation) && (elem.inner instanceof mathElems.Product) )) {
     return null;
   }
@@ -148,7 +148,7 @@ const bringMinusInside = Action.ofSingleElement('Undo bringing minus to front', 
 });
 
 
-const swap = Action.ofNChildElements('Swap', 's', 2, (parent, child1, child2) => {
+const swap = Action.ofNChildElements('Swap', 'S', 2, (parent, child1, child2) => {
   if (!(parent instanceof mathElems.List)) {
     return null;
   }
@@ -168,7 +168,7 @@ function minWithKey(array, key) {
   return array.slice().sort((a,b) => key(a) - key(b))[0];
 }
 
-const cancel = Action.ofNChildElements('Cancel', 'c', 2, (parent, child1, child2) => {
+const cancel = Action.ofNChildElements('Cancel', 'C', 2, (parent, child1, child2) => {
   if (parent instanceof mathElems.Sum) {
     if (!( ((child1 instanceof mathElems.Negation) && child1.inner.equals(child2)) ||
            ((child2 instanceof mathElems.Negation) && child2.inner.equals(child1)) )) {

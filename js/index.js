@@ -57,22 +57,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const ctrlPressHelper = new SelectMoreSiblingsManager(selection);
   const keyBindings = {
-    'ArrowUp': () => selection.selectChild(),
     'ArrowDown': () => selection.selectParent(),
+    'ArrowUp': () => selection.selectChild(),
+    'Ctrl+A': () => selection.selectAllChildren(),
     'ArrowLeft': () => ctrlPressHelper.selectPreviousOrNextSibling(-1),
     'ArrowRight': () => ctrlPressHelper.selectPreviousOrNextSibling(+1),
+    'Ctrl+ArrowLeft': () => ctrlPressHelper.selectPreviousOrNextSibling(-1),
+    'Ctrl+ArrowRight': () => ctrlPressHelper.selectPreviousOrNextSibling(+1),
+    'Control': () => ctrlPressHelper.beginMoreMode(),
+    'Control up': () => ctrlPressHelper.endMoreMode(),
+    'Home': () => selection.selectFirstOrLastSibling(false),
+    'End': () => selection.selectFirstOrLastSibling(true),
     'r': () => renderAgain(),   // TODO: delete this?
   };
 
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Control') {
-      ctrlPressHelper.beginMoreMode();
-    } else if (keyBindings[event.key] !== undefined) {
-      keyBindings[event.key]();
+  function handleEvent(upBool, event) {
+    let key;
+    if (event.key === event.key.toLowerCase()) {  // e.g. 'a'
+      key = event.key.toUpperCase();
+    } else if (event.key === event.key.toUpperCase()) {   // e.g. 'A'
+      key = 'Shift+' + event.key;
+    } else {    // e.g. 'ArrowUp'
+      key = event.key;
+    }
+
+    if (event.ctrlKey && key !== 'Control') {
+      key = 'Ctrl+' + key;
+    }
+    if (upBool) {
+      key = key + ' up';
+    }
+
+    if (keyBindings[key] !== undefined) {
+      keyBindings[key]();
     } else {
-      const matchingActions = ACTIONS.filter(act => act.keyBinding === event.key);
+      const matchingActions = ACTIONS.filter(act => (act.keyBinding === key));
       if (matchingActions.length > 2) {
-        throw new Error("multiple actions have same key binding: " + event.key);
+        throw new Error("multiple actions have same key binding: " + key);
       }
 
       if (matchingActions.length === 1) {
@@ -85,21 +106,16 @@ document.addEventListener('DOMContentLoaded', () => {
           selection.select(toSelect);
         }
       } else {
-        console.log("unbound key: " + event.key);
+        if (!upBool) {
+          console.log("unbound key: " + key);
+        }
         return;
       }
     }
 
     event.preventDefault();
-  });
+  }
 
-  document.addEventListener('keyup', event => {
-    if (event.key === 'Control') {
-      ctrlPressHelper.endMoreMode();
-    } else {
-      return;
-    }
-
-    event.preventDefault();
-  });
+  document.addEventListener('keydown', event => handleEvent(false, event));
+  document.addEventListener('keyup', event => handleEvent(true, event));
 });

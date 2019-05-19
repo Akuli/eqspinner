@@ -138,6 +138,30 @@ export class Selection extends EventTarget {
     });
   }
 
+  selectAllChildren() {
+    this._selectSomething();
+    this.selectionMap(element => {
+      const children = element.getChildElements();
+      if (children.length === 0) {
+        return element;
+      }
+      return children;
+    });
+  }
+
+  selectFirstOrLastSibling(lastBool) {
+    this._selectSomething();
+    this.selectionMap(element =>
+      (element.parent === null)?
+        element
+      :
+        lastBool?
+          element.parent.getChildElements().slice(-1)[0]
+        :
+          element.parent.getChildElements()[0]
+    );
+  }
+
   selectParent() {
     this._selectSomething();
     this.selectionMap(element =>

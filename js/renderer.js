@@ -16,41 +16,40 @@ function createSumSignSpan(sign) {
   return span;
 }
 
-function createParenContainer(wrappedElement) {
-  const containerDiv = document.createElement('div');
-  containerDiv.classList.add('math-paren-container');
-
-  const lParen = document.createElement('span');
-  const rParen = document.createElement('span');
-  lParen.classList.add('math-lparen');
-  rParen.classList.add('math-rparen');
-  lParen.textContent = '(';
-  rParen.textContent = ')';
-
-  containerDiv.appendChild(lParen);
-  containerDiv.appendChild(wrappedElement);
-  containerDiv.appendChild(rParen);
-
-  return containerDiv;
-}
-
 
 export class Renderer {
   constructor() {
-    // keys are mathElems elements, values are dom elements
+    // keys are mathElems, values are dom elements
     this._renderedElements = new Map();
+
+    // keys are contents of parens as dom elements, values are paren containers
+    this._parenDoms = new Map();
+  }
+
+  _createParenContainer(domBetweenParens) {
+    const containerDiv = document.createElement('div');
+    containerDiv.classList.add('math-paren-container');
+
+    containerDiv.innerHTML =
+      '<span class="math-lparen">(</span>' +
+      '<span class="math-rparen">)</span>';
+    containerDiv.insertBefore(domBetweenParens, containerDiv.lastElementChild);
+
+    this._parenDoms.set(domBetweenParens, containerDiv);
+    return containerDiv;
   }
 
   _renderWithParensIfNeeded(mathElem) {
     const dom = this.render(mathElem);
     if (mathElem.parent.childNeedsParens(mathElem)) {
-      return createParenContainer(dom);
+      return this._createParenContainer(dom);
     }
     return dom;
   }
 
   unrender() {
     this._renderedElements.clear();
+    this._parenDoms.clear();
   }
 
   render(mathElem) {
@@ -123,13 +122,17 @@ export class Renderer {
     return domElem;
   }
 
-  setSelectedElements(coreElements) {
-    for (const domElem of this._renderedElements.values()) {
-      domElem.classList.remove('math-elem-selected');
+  setSelectedElements(mathElements) {
+    for ( const dom of [...this._renderedElements.values(), ...this._parenDoms.values()] ) {
+      dom.classList.remove('math-elem-selected');
     }
 
-    for (const coreElem of coreElements) {
-      this._renderedElements.get(coreElem).classList.add('math-elem-selected');
+    for (const mathElem of mathElements) {
+      let dom = this._renderedElements.get(mathElem);
+      if (this._parenDoms.has(dom)) {
+        dom = this._parenDoms.get(dom);
+      }
+      dom.classList.add('math-elem-selected');
     }
   }
 }

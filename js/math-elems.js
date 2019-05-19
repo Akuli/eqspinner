@@ -125,7 +125,7 @@ class Container extends MathElement {
 
   _childHasBeenAdded(child) {
     if (child.parent !== null) {
-      throw new Error("cannot add same element to 2 places");
+      throw new Error(`cannot add element to 2 places: ${child} ${child.constructor.name} is already in ${child.parent} ${child.parent.constructor.name}, would be added to ${this} ${this.constructor.name}`);
     }
     child.parent = this;
   }
@@ -321,7 +321,7 @@ export class List extends Container {
 
     children
       .map(child => this._children.indexOf(child))
-      .sort((a,b) => b-a)   // biggest first
+      .sort((a,b) => b-a)   // biggest index first
       .forEach(i => {
         this._childWillBeRemoved(this._children[i]);
         this._children.splice(i, 1);
@@ -332,7 +332,10 @@ export class List extends Container {
       this.parent.replace(this, this._createEmptyValue());
     }
     if (this._children.length === 1) {
-      this.parent.replace(this, this._children[0]);
+      const child = this._children[0];
+      this._childWillBeRemoved(child);
+      this._children.length = 0;
+      this.parent.replace(this, child);
     }
   }
 

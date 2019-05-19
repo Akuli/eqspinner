@@ -221,14 +221,12 @@ export class SelectMoreSiblingsManager {
 
   // ctrl pressed
   beginMoreMode() {
-    console.log('begin more mode');
     this._moreMode = true;
     this._moreModeElement = null;
   }
 
   // ctrl released
   endMoreMode() {
-    console.log('end more mode');
     this._moreMode = false;
     this._moreModeElement = null;
   }
@@ -246,7 +244,6 @@ export class SelectMoreSiblingsManager {
     const addedToSelection = selectedAfter.filter(elem => !selectedBefore.has(elem));
     if (addedToSelection.length !== 0) {
       [this._moreModeElement] = addedToSelection;
-      console.log(this._moreModeElement + '');
     }
   }
 }

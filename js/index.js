@@ -51,6 +51,17 @@ document.addEventListener('DOMContentLoaded', () => {
   selection.addEventListener('Select', () => renderer.setSelectedElements(selection.getSelectedElements()));
 
   function renderAgain() {
+    // sanity check
+    const everything = [];
+    const recurser = mathElem => {
+      everything.push(mathElem);
+      mathElem.getChildElements().forEach(recurser);
+    }
+    recurser(math);
+    if ( (new Set(everything)).size < everything.length ){
+      throw new Error("OMG!!");
+    }
+
     div.innerHTML = '';
     div.appendChild(renderer.render(math));
   }

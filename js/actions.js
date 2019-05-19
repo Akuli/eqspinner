@@ -6,7 +6,7 @@ import * as mathElems from  './math-elems.js';
 //    * a math element:             same as wrapping it in an array of 1 element
 //    * an array of math elements:  something was done, these elements should be selected
 //
-// the callbacks can return any of these
+// callback or this._callback means a function that can return any of these
 class Action {
   constructor(kind, name, keyBinding, callback) {
     this._kind = kind;
@@ -20,14 +20,23 @@ class Action {
   }
 
   static ofNChildElements(name, keyBinding, n, callback) {
+    if (n < 2) {
+      throw new Error("n must be 2 or greater");
+    }
     return new this({ id: 'nChildElements', n: n }, name, keyBinding, callback);
+  }
+
+  static ofTwoOrMoreChildElements(name, keyBinding, callback) {
+    return new this({ id: 'twoOrMoreChildElements' }, name, keyBinding, callback);
   }
 
   // returns a Selection.select() argument array, or null for nothing done
   run(selection) {
+    const selected = selection.getSelectedElements()
+
     if (this._kind.id === 'singleElement') {
       let somethingDone = false;
-      const toSelect = selection.getSelectedElements().flatMap(elem => {
+      const toSelect = selected.flatMap(elem => {
         const callbackResult = this._callback(elem);
         if (callbackResult === null) {
           return elem;
@@ -45,8 +54,6 @@ class Action {
     }
 
     if (this._kind.id === 'nChildElements') {
-      const selected = selection.getSelectedElements();
-
       // TODO: if user wants to swap x and y of xy, and has selected the whole xy
       //       handle that correctly, and figure out how it generalizes for n > 2
       if (selected.length !== this._kind.n) {
@@ -65,12 +72,62 @@ class Action {
       return [].concat(callbackResult);
     }
 
+    if (this._kind.id === 'twoOrMoreChildElements') {
+      const byParent = selected.reduce(
+        (map, el) => (map.get(el.parent).push(el), map),
+        new Map( selected.map(el => el.parent).map(parent => [parent, []]) ),
+      );
+
+      let somethingDone = false;
+      const toSelect = [ ... byParent.entries() ].flatMap( ([parent, children]) => {
+        if (children.length < 2) {
+          return children;
+        }
+
+        const callbackResult = this._callback(parent, children);
+        if (callbackResult === null) {
+          return children;
+        }
+
+        somethingDone = true;
+        return callbackResult;
+      });
+
+      if (!somethingDone) {
+        return null;
+      }
+      return toSelect;
+    }
+
     throw new Error("unknown action kind: " + this._kind.id);
   }
 }
 
 
-const expand = Action.ofSingleElement('Expand', 'E', elem => {
+export const ACTIONS = [];
+
+
+ACTIONS.push(Action.ofSingleElement('Unnest', 'U', elem => {
+  if (!( (elem.parent instanceof mathElems.List) && (elem instanceof elem.parent.constructor) )) {
+    return null;
+  }
+
+  const children = elem.getChildElements();
+  const childCopies = elem.getChildElements().map(el => el.copy());
+  const parent = elem.parent;
+  const firstIndex = parent.getChildElements().indexOf(elem);
+
+  childCopies.forEach((childCopy, index) => {
+    if (index === 0) {
+      parent.replace(elem, childCopy);
+    } else {
+      parent.insertChildElement(firstIndex + index, childCopy);
+    }
+  });
+  return childCopies;
+}));
+
+ACTIONS.push(Action.ofSingleElement('Expand', 'E', elem => {
   // a(b + c)d  -->  abd + acd
   if (elem instanceof mathElems.Product) {
     const firstSumIndex = elem.getChildElements().findIndex(child => (child instanceof mathElems.Sum));
@@ -93,31 +150,67 @@ const expand = Action.ofSingleElement('Expand', 'E', elem => {
   }
 
   return null;
-});
+}));
 
-
-const unnest = Action.ofSingleElement('Unnest', 'U', elem => {
-  if (!( (elem.parent instanceof mathElems.List) && (elem instanceof elem.parent.constructor) )) {
+ACTIONS.push(Action.ofTwoOrMoreChildElements('Factor', 'F', (parent, children) => {
+  if (!(parent instanceof mathElems.Sum)) {
     return null;
   }
 
-  const children = elem.getChildElements();
-  const childCopies = elem.getChildElements().map(el => el.copy());
-  const parent = elem.parent;
-  const firstIndex = parent.getChildElements().indexOf(elem);
+  // TODO: ax-bx  -->  (a-b)x
+  // TODO: -ax-bx -->  (-a-b)x
+  const factorArrays = new Map(children.map(child => [
+    child,
+    (child instanceof mathElems.Product) ? child.getChildElements() : [child],
+  ]));
 
-  childCopies.forEach((childCopy, index) => {
-    if (index === 0) {
-      parent.replace(elem, childCopy);
-    } else {
-      parent.insertChildElement(firstIndex + index, childCopy);
+  const commonFactorMaps = [];    // items are maps: keys are children, values are .equal() factor elements
+
+  // welcome to this hell, good luck
+  for (const possibleCommonFactor of factorArrays.get(children[0])) {
+    let itReallyIsCommon = true;
+    const factorMap = new Map();
+    for (const [child, factors] of factorArrays.entries()) {
+      const factorsNotUsedYet = factors.filter(factor => ! commonFactorMaps.some(map => map.get(child)===factor));
+      const commonFactorInTheChild = factorsNotUsedYet.find(childFactor => childFactor.equals(possibleCommonFactor));
+      if (commonFactorInTheChild === undefined) {
+        itReallyIsCommon = false;
+        break;
+      }
+      factorMap.set(child, commonFactorInTheChild);
     }
-  });
-  return childCopies;
-});
 
+    if (itReallyIsCommon) {
+      commonFactorMaps.push(factorMap);
+    }
+  }
 
-const bringMinusToFront = Action.ofSingleElement('Bring minus to front', 'B', elem => {
+  if (commonFactorMaps.length === 0) {
+    return null;
+  }
+
+  const sumPart = new mathElems.Sum(
+    children
+    .map(child => {
+      const toBeRemoved = commonFactorMaps.map(map => map.get(child));
+      return factorArrays.get(child).filter(factor => !toBeRemoved.includes(factor));
+    })
+    .map(remainingFactors => remainingFactors.map(factor => factor.copy()))
+    .map(remainingFactorCopies => new mathElems.Product(remainingFactorCopies))
+  );
+
+  const theCommonFactors = commonFactorMaps
+    .map(map => [...map.values()])
+    .map(equalFactorElementArray => equalFactorElementArray[0])
+    .map(someFactorElement => someFactorElement.copy());
+
+  const factoredYayFinallyThisIsDoneYayYay = new mathElems.Product([sumPart, ...theCommonFactors]);
+  parent.replace(children[0], factoredYayFinallyThisIsDoneYayYay);
+  parent.removeChildElements(children.slice(1));
+  return factoredYayFinallyThisIsDoneYayYay;
+}));
+
+ACTIONS.push(Action.ofSingleElement('Bring minus to front', 'B', elem => {
   if ( !(elem instanceof mathElems.Product)) {
     return null;
   }
@@ -132,10 +225,9 @@ const bringMinusToFront = Action.ofSingleElement('Bring minus to front', 'B', el
   const newNegation = new mathElems.Negation(elem.copy());
   elem.parent.replace(elem, newNegation);
   return newNegation;
-});
+}));
 
-
-const bringMinusInside = Action.ofSingleElement('Undo bringing minus to front', 'Shift+B', elem => {
+ACTIONS.push(Action.ofSingleElement('Undo bringing minus to front', 'Shift+B', elem => {
   if (!( (elem instanceof mathElems.Negation) && (elem.inner instanceof mathElems.Product) )) {
     return null;
   }
@@ -145,10 +237,9 @@ const bringMinusInside = Action.ofSingleElement('Undo bringing minus to front', 
   const productCopy = elem.inner.copy();
   elem.parent.replace(elem, productCopy);
   return productCopy;
-});
+}));
 
-
-const swap = Action.ofNChildElements('Swap', 'S', 2, (parent, child1, child2) => {
+ACTIONS.push(Action.ofNChildElements('Swap', 'S', 2, (parent, child1, child2) => {
   if (!(parent instanceof mathElems.List)) {
     return null;
   }
@@ -160,15 +251,16 @@ const swap = Action.ofNChildElements('Swap', 'S', 2, (parent, child1, child2) =>
   parent.replace(tempChild1, child2);
   parent.replace(tempChild2, child1);
   return [child1, child2];
-});
-
+}));
 
 function minWithKey(array, key) {
-  // TODO: more efficient implementation without sorting the whole shit with a key function?
-  return array.slice().sort((a,b) => key(a) - key(b))[0];
+  if (array.length === 0) {
+    throw new Error("cannot find min element of []");
+  }
+  return array.reduce((a,b) => ( key(a)<key(b) ? a : b ), array[0]);
 }
 
-const cancel = Action.ofNChildElements('Cancel', 'C', 2, (parent, child1, child2) => {
+ACTIONS.push(Action.ofNChildElements('Cancel', 'C', 2, (parent, child1, child2) => {
   if (parent instanceof mathElems.Sum) {
     if (!( ((child1 instanceof mathElems.Negation) && child1.inner.equals(child2)) ||
            ((child2 instanceof mathElems.Negation) && child2.inner.equals(child1)) )) {
@@ -191,14 +283,4 @@ const cancel = Action.ofNChildElements('Cancel', 'C', 2, (parent, child1, child2
     minWithKey(Array.from(neighbors), child=>childArray.indexOf(child));
   parent.removeChildElements([ child1, child2 ]);
   return toSelect;
-});
-
-
-export const ACTIONS = [
-  expand,
-  unnest,
-  bringMinusToFront,
-  bringMinusInside,
-  swap,
-  cancel,
-];
+}));

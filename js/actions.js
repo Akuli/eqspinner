@@ -361,6 +361,17 @@ ACTIONS.push(Action.ofNChildElements('Cancel', 'C', 2, (parent, child1, child2) 
 }));
 
 
+ACTIONS.push(Action.ofSingleElement('Delete double minus', 'D', elem => {
+  if (!(elem instanceof mathElems.Negation) || !(elem.inner instanceof mathElems.Negation)) {
+    return null;
+  }
+
+  const replacer = elem.inner.inner.copy();
+  elem.parent.replace(elem, replacer);
+  return replacer;
+}));
+
+
 ACTIONS.push(Action.ofSingleElementReally('Manual edit', 'M', async(elem) => {
   const dialog = new ModalDialog("Manual edit", ["Apply", "Cancel"]);
   const applyButton = dialog.buttons["Apply"];

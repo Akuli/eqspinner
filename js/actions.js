@@ -145,36 +145,59 @@ ACTIONS.push(Action.ofSingleElement('Unnest', 'U', elem => {
 }));
 
 
-ACTIONS.push(Action.ofSingleElement('Expand', 'E', elem => {
-  // a(b + c)d  -->  abd + acd
-  if (elem instanceof mathElems.Product) {
-    const firstSumIndex = elem.getChildElements().findIndex(child => (child instanceof mathElems.Sum));
-    if (firstSumIndex === -1) {
-      return null;
-    }
-
-    const before = elem.getChildElements().slice(0, firstSumIndex);
-    const firstSum = elem.getChildElements()[firstSumIndex];
-    const after = elem.getChildElements().slice(firstSumIndex+1);
-
-    const newElem = new mathElems.Sum(
-      firstSum.getChildElements()
-        .map(el => [...before, el, ...after])
-        .map(elArray => elArray.map( el => el.copy() ))
-        .map(factorArray => new mathElems.Product(factorArray))
-    );
-    elem.parent.replace(elem, newElem);
-    return [newElem];
+// returns the resulting element (a copy), or null for nothing done
+function expandSumInProductToSumParts(elem) {
+  if (elem instanceof mathElems.Sum) {
+    return elem.getChildElements().map(el => el.copy());
+  }
+  if (!(elem instanceof mathElems.Product)) {
+    return null;
   }
 
-  return null;
+  const firstSumIndex = elem.getChildElements().findIndex(child => (child instanceof mathElems.Sum));
+  if (firstSumIndex === -1) {
+    return null;
+  }
+
+  const before = elem.getChildElements().slice(0, firstSumIndex);
+  const firstSum = elem.getChildElements()[firstSumIndex];
+  const after = elem.getChildElements().slice(firstSumIndex+1);
+
+  return firstSum.getChildElements()
+    .map(el => [...before, el, ...after])
+    .map(elArray => elArray.map( el => el.copy() ))
+    .map(factorArray => new mathElems.Product(factorArray));
+}
+
+// TODO: should this work on elements of products instead of products themselves?
+// that would allow expanding just (a+b)c of (a+b)cde
+// at least this should behave similarly as factor!
+ACTIONS.push(Action.ofSingleElement('Expand', 'E', elem => {
+  let sumParts = null;
+
+  // a(b + c)d  -->  abd + acd
+  if (elem instanceof mathElems.Product) {
+    sumParts = expandSumInProductToSumParts(elem);
+  }
+  // -(a+b)c --> -ac-bc
+  else if (elem instanceof mathElems.Negation) {
+    sumParts = expandSumInProductToSumParts(elem.inner);
+    if (sumParts !== null) {
+      sumParts = sumParts.map(part => new mathElems.Negation(part));
+    }
+  }
+
+  if (sumParts === null) {
+    return null;
+  }
+
+  const result = new mathElems.Sum(sumParts);
+  elem.parent.replace(elem, result);
+  return result;
 }));
 
 
 function getFactors(elem) {
-  if (elem instanceof mathElems.Negation) {
-    elem = elem.inner;
-  }
   if (elem instanceof mathElems.Product) {
     return elem.getChildElements();
   }
@@ -207,12 +230,13 @@ ACTIONS.push(Action.ofTwoOrMoreChildElements('Factor', 'F', (parent, children) =
     return null;
   }
 
-  // TODO: -ax-bx -->  -(a+b)x
+  const factoringOutMinus = children.every(child => child instanceof mathElems.Negation);
 
   // values represent factors that have not been factored out yet  (*)
   // this is important when there are duplicate factors
-  const factorArrays = new Map(children.map( child => [child, getFactors(child)] ));
-  console.log([...factorArrays.entries()].map(([k,v])=>[k,v.slice()]));
+  const factorArrays = new Map(children.map( child => [
+    child, getFactors((child instanceof mathElems.Negation) ? child.inner : child)
+  ] ));
 
   let commonFactors = [];
   for (const possibleCommonFactor of factorArrays.get(children[0]).slice()) {
@@ -230,12 +254,27 @@ ACTIONS.push(Action.ofTwoOrMoreChildElements('Factor', 'F', (parent, children) =
     }
   }
 
-  if (commonFactors.length === 0) {
+  if (commonFactors.length === 0 && !factoringOutMinus) {
     return null;
   }
 
-  const sumPart = new mathElems.Sum( children.map(child => removeFactors(child, commonFactors)) );
-  const factored = new mathElems.Product([ sumPart, ... commonFactors.map(factor => factor.copy()) ]);
+  let sumTerms = children.map(child => removeFactors(child, commonFactors));
+  if (factoringOutMinus) {
+    sumTerms = sumTerms.map(term => {
+      if (!(term instanceof mathElems.Negation)) {
+        throw new Error("wut");
+      }
+      return term.inner.copy();
+    });
+  }
+
+  let factored = new mathElems.Product([
+    new mathElems.Sum(sumTerms),
+    ... commonFactors.map(factor => factor.copy())
+  ]);
+  if (factoringOutMinus) {
+    factored = new mathElems.Negation(factored);
+  }
 
   parent.replace(children[0], factored);
   parent.removeChildElements(children.slice(1));

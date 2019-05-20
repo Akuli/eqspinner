@@ -58,6 +58,10 @@ export class ModalDialog {
   // can be called to do exactly what pressing a button would do
   // pass null for what closing the dialog would do
   pressButton(buttonTextOrNull) {
+    if (buttonTextOrNull !== null && this.buttons[buttonTextOrNull].disabled) {
+      return;
+    }
+
     this._closeButton.removeEventListener('click', this._onClose);
     this._containerDiv.classList.add('hidden');
     globalRunningDialogVar = null;

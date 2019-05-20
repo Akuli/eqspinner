@@ -122,8 +122,32 @@ function arrayEquals(a, b, key) {
 }
 
 
+// Set tricks won't do because must not ignore duplicates
+function arrayEqualsIgnoreOrder(a, b, key) {
+  return a.length === b.length && a.reduce((bElemsRemaining, aElem) => {
+    if (bElemsRemaining === null) {
+      return null;
+    }
+
+    const index = bElemsRemaining.findIndex(bElem => key(aElem, bElem));
+    if (index === -1) {
+      return null;
+    }
+
+    bElemsRemaining.splice(index, 1);
+    return bElemsRemaining;
+  }, [...b]) !== null;
+}
+
+
 // subclasses must provide a .copy(), and that must do a recursive copy
 class Container extends MathElement {
+
+  constructor() {
+    super();
+    this._equalsIgnoresOrder = false;
+  }
+
   getChildElements() {
     throw new Error("getChildElements wasn't overrided");
   }
@@ -155,9 +179,11 @@ class Container extends MathElement {
   }
 
   equals(that) {
+    const eqFunc = this._equalsIgnoresOrder ? arrayEqualsIgnoreOrder : arrayEquals;
+
     // instanceof might not be symmetric because inheritance, that's why === with constructors
     return (this.constructor === that.constructor &&
-            arrayEquals( this.getChildElements(), that.getChildElements(), (a,b) => a.equals(b) ));
+            eqFunc( this.getChildElements(), that.getChildElements(), (a,b) => a.equals(b) ));
   }
 }
 
@@ -288,6 +314,8 @@ export class List extends Container {
     for (const child of children) {
       this.appendChildElement(child);
     }
+
+    this._equalsIgnoresOrder = true;    // lists are assumed to be associative
   }
 
   _createEmptyValue() {

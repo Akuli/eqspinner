@@ -72,7 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const keyBindings = {
     'ArrowDown': () => selection.selectParent(),
     'ArrowUp': () => selection.selectChild(),
-    'Ctrl+A': () => selection.selectAllChildren(),
     'ArrowLeft': () => ctrlPressHelper.selectPreviousOrNextSibling(-1),
     'ArrowRight': () => ctrlPressHelper.selectPreviousOrNextSibling(+1),
     'Ctrl+ArrowLeft': () => ctrlPressHelper.selectPreviousOrNextSibling(-1),
@@ -81,8 +80,8 @@ document.addEventListener('DOMContentLoaded', () => {
     'Control up': () => ctrlPressHelper.endMoreMode(),
     'Home': () => selection.selectFirstOrLastSibling(false),
     'End': () => selection.selectFirstOrLastSibling(true),
-    'r': () => renderAgain(),   // TODO: delete this?
-  };
+    'I': () => selection.selectAllChildren(),
+ };
 
   async function handleEvent(upBool, event) {
     if (modalDialog.isShowing()) {

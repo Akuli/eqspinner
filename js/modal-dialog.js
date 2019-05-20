@@ -1,69 +1,79 @@
-let globalIsShowingVar = false;   // MUHAHAHA
+let globalRunningDialogVar = null;   // MUHAHAHA
 
 export function isShowing() {
-  return globalIsShowingVar;
+  return (globalRunningDialogVar !== null);
 }
 
 
-function setupHtml() {
-  if (document.getElementById('modal-dialog-container') === null) {
-    const div = document.createElement('div');
-    div.id = 'modal-dialog-container';
-    div.classList.add('hidden');
-    div.innerHTML =
+export class ModalDialog {
+  constructor(titleText, buttonTexts) {
+    this._setupHtml();
+    this._titleElement.textContent = titleText;
+
+    this._onClose = () => this.pressButton(null);    // because javascript is awesome
+    this._closeButton.addEventListener('click', this._onClose);
+
+    this.buttons = {};
+    for (const text of buttonTexts) {
+      const button = document.createElement('button');
+      button.textContent = text;
+      button.addEventListener('click', () => this.pressButton(text));
+      this._buttonArea.appendChild(button);
+      this.buttons[text] = button;
+    }
+
+    this._runDoneCallback = null;
+  }
+
+  _setupHtml() {
+    this._containerDiv = document.createElement('div');
+    this._containerDiv.classList.add('modal-dialog-container');
+    this._containerDiv.classList.add('hidden');
+    this._containerDiv.innerHTML =
       '<div>' +
-      '  <div id="modal-dialog-top-bar">' +
-      '    <h2 id="modal-dialog-title"></h2>' +
-      '    <button id="modal-dialog-close-button">&#x274C;</button>' +
+      '  <div class="modal-dialog-top-bar">' +
+      '    <h2 class="modal-dialog-title"></h2>' +
+      '    <button class="modal-dialog-close-button">&#x274C;</button>' +
       '  </div>' +
-      '  <div id="modal-dialog-content"></div>' +
-      '  <div id="modal-dialog-button-area"></div>' +
+      '  <div class="modal-dialog-content"></div>' +
+      '  <div class="modal-dialog-button-area"></div>' +
       '</div>';
-    document.body.appendChild(div);
-  }
-}
 
+    this._titleElement = this._containerDiv.querySelector('.modal-dialog-title');
+    this._closeButton = this._containerDiv.querySelector('.modal-dialog-close-button');
+    this.contentDiv = this._containerDiv.querySelector('.modal-dialog-content');
+    this._buttonArea = this._containerDiv.querySelector('.modal-dialog-button-area');
 
-function showDialogWithCallback(titleText, dom, buttonTexts, callback) {
-  setupHtml();
+    this._containerDiv.addEventListener('click', event => {
+      if (event.target === this._containerDiv) {
+        // close the dialog
+        this.pressButton(null);
+        event.preventDefault();
+      }
+    });
 
-  const titleElement = document.getElementById('modal-dialog-title');
-  const containerDiv = document.getElementById('modal-dialog-container');
-  const closeButton = document.getElementById('modal-dialog-close-button');
-  const contentDiv = document.getElementById('modal-dialog-content');
-  const buttonArea = document.getElementById('modal-dialog-button-area');
-
-  titleElement.textContent = titleText;
-  contentDiv.innerHTML = '';
-  contentDiv.appendChild(dom);
-
-  function onClickOrClose(buttonTextOrNull) {
-    closeButton.removeEventListener('click', onClose);
-    containerDiv.classList.add('hidden');
-    globalIsShowingVar = false;
-    callback(buttonTextOrNull);
+    document.body.appendChild(this._containerDiv);
   }
 
-  function onClose() {
-    console.log('on close');
-    onClickOrClose(null);
+  // can be called to do exactly what pressing a button would do
+  // pass null for what closing the dialog would do
+  pressButton(buttonTextOrNull) {
+    this._closeButton.removeEventListener('click', this._onClose);
+    this._containerDiv.classList.add('hidden');
+    globalRunningDialogVar = null;
+    this._runDoneCallback(buttonTextOrNull);
   }
 
-  closeButton.addEventListener('click', onClose);
+  run() {
+    if (globalRunningDialogVar !== null) {
+      throw new Error("another dialog is already running");
+    }
 
-  buttonArea.innerHTML = '';
-  for (const text of buttonTexts) {
-    const button = document.createElement('button');
-    button.textContent = text;
-    button.addEventListener('click', () => onClickOrClose(text));
-    buttonArea.appendChild(button);
+    this._containerDiv.classList.remove('hidden');
+    globalRunningDialogVar = this;
+    return new Promise(resolve => {
+      // i don't trust javascript enough for doing this without an arrow function
+      this._runDoneCallback = ( result => resolve(result) );
+    });
   }
-
-  containerDiv.classList.remove('hidden');
-  globalIsShowingVar = true;
-}
-
-
-export async function showDialog(titleText, dom, buttonTexts) {
-  return new Promise(resolve => showDialogWithCallback(titleText, dom, buttonTexts, resolve));
 }

@@ -1,3 +1,4 @@
+import * as asciiMathParser from './asciimath-parser.js';
 import * as mathElems from './math-elems.js';
 import * as modalDialog from './modal-dialog.js';
 import { Renderer } from './renderer.js';
@@ -83,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'r': () => renderAgain(),   // TODO: delete this?
   };
 
-  function handleEvent(upBool, event) {
+  async function handleEvent(upBool, event) {
     if (modalDialog.isShowing()) {
       return;
     }
@@ -113,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (matchingActions.length === 1) {
-        const toSelect = matchingActions[0].run(selection);
+        const toSelect = await matchingActions[0].run(selection);
         if (toSelect === null) {
           console.log('nothing done');
         } else {
@@ -132,6 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
     event.preventDefault();
   }
 
-  document.addEventListener('keydown', event => handleEvent(false, event));
-  document.addEventListener('keyup', event => handleEvent(true, event));
+  document.addEventListener('keydown', event => { handleEvent(false, event); });
+  document.addEventListener('keyup', event => { handleEvent(true, event); });
 });

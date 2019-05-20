@@ -11,8 +11,6 @@ design notes:
     or at least you should never mutate anything else than .parent
   * Container elements are mutable
     their child elements can be changed on-the-fly
-  * toString() methods are there mostly for debugging
-    e.g. console.log(someElement + '');
 */
 
 const Precedences = {
@@ -25,11 +23,11 @@ const Precedences = {
 };
 
 
-function toStringWithParens(childElem) {
-  if (childElem.parent.childNeedsParens(childElem)) {
-    return '(' + childElem.toString() + ')';
+function toAsciiMathWithParens(childElem) {
+  if (childElem.parent.childNeedsParens(childElem, 'asciimath')) {
+    return '(' + childElem.toAsciiMath() + ')';
   }
-  return childElem.toString();
+  return childElem.toAsciiMath();
 }
 
 
@@ -56,6 +54,17 @@ export class MathElement {
   copy() {
     throw new Error("wasn't overrided");
   }
+
+  toAsciiMath() {
+    throw new Error("toAsciiMath wasn't overrided");
+  }
+
+  // think of this as something that returns debugging information
+  // e.g. console.log(someElement + '');
+  // use .toAsciiMath() directly when you need it
+  toString() {
+    return this.toAsciiMath();
+  }
 }
 MathElement.precedence = Precedences.NEVER_PARENTHESIZE;
 
@@ -67,7 +76,7 @@ export class Symbol extends MathElement {
     this.name = name;
   }
 
-  toString() {
+  toAsciiMath() {
     return this.name;
   }
 
@@ -94,7 +103,7 @@ export class IntConstant extends MathElement {
     this.jsNumber = jsNumber;
   }
 
-  toString() {
+  toAsciiMath() {
     return this.jsNumber + '';
   }
 
@@ -137,7 +146,8 @@ class Container extends MathElement {
     child.parent = null;
   }
 
-  childNeedsParens(child) {
+  // forWhatPurpose is 'display' or 'asciimath'
+  childNeedsParens(child, forWhatPurpose) {
     if (child.parent !== this) {
       throw new Error("childNeedsParens called for non-child");
     }
@@ -214,8 +224,8 @@ class FixedNumberOfChildElementsContainer extends Container {
 
 // all elements are wrapped into one of these
 export class EverythingContainer extends FixedNumberOfChildElementsContainer {
-  toString() {
-    return this.content.toString();
+  toAsciiMath() {
+    return this.content.toAsciiMath();
   }
 }
 EverythingContainer._setNames(['content']);
@@ -224,8 +234,8 @@ EverythingContainer.precedence = Precedences.EVERYTHING_CONTAINER;
 
 // -something
 export class Negation extends FixedNumberOfChildElementsContainer {
-  toString() {
-    return '-' + toStringWithParens(this.inner);
+  toAsciiMath() {
+    return '-' + toAsciiMathWithParens(this.inner);
   }
 }
 Negation._setNames(['inner']);
@@ -234,16 +244,8 @@ Negation.precedence = Precedences.SUM_AND_NEGATION;
 
 // something/something
 export class Fraction extends FixedNumberOfChildElementsContainer {
-  toString() {
-    // the precedence stuff was designed for doing:
-    //
-    //    numer
-    //   -------
-    //    denom
-    //
-    // but this method has to do numer/denom instead
-    // solution: use explicit parentheses
-    return `(${this.numer.toString()})/(${this.denom.toString()})`
+  toAsciiMath() {
+    return toAsciiMathWithParens(this.numer) + '/' + toAsciiMathWithParens(this.denom);
   }
 }
 Fraction._setNames(['numer', 'denom']);
@@ -252,12 +254,12 @@ Fraction.precedence = Precedences.FRACTION;
 
 // something^something
 export class Power extends FixedNumberOfChildElementsContainer {
-  toString() {
-    return toStringWithParens(this.base) + '^' + toStringWithParens(this.exponent);
+  toAsciiMath() {
+    return toAsciiMathWithParens(this.base) + '^' + toAsciiMathWithParens(this.exponent);
   }
 
-  childNeedsParens(child) {
-    if (child === this.exponent) {
+  childNeedsParens(child, forWhatPurpose) {
+    if (child === this.exponent && forWhatPurpose === 'display') {
       /*
                 b             /  b \
                a              \ a  /
@@ -265,7 +267,7 @@ export class Power extends FixedNumberOfChildElementsContainer {
       */
       return false;
     }
-    return super.childNeedsParens(child);
+    return super.childNeedsParens(child, forWhatPurpose);
   }
 }
 Power._setNames(['base', 'exponent']);
@@ -362,8 +364,9 @@ export class Product extends List {
     return new IntConstant(1);
   }
 
-  toString() {
-    return this.getChildElements().map(toStringWithParens).join('*');
+  toAsciiMath() {
+    // TODO: prevent stuff like s*i*n = sin
+    return this.getChildElements().map(toAsciiMathWithParens).join('');
   }
 }
 Product.precedence = Precedences.PRODUCT;
@@ -376,17 +379,17 @@ export class Sum extends List {
     return new IntConstant(0);
   }
 
-  childNeedsParens(child) {
+  childNeedsParens(child, forWhatPurpose) {
     if (child instanceof Negation) {
       return false;
     }
-    return super.childNeedsParens(child);
+    return super.childNeedsParens(child, forWhatPurpose);
   }
 
-  toString() {
+  toAsciiMath() {
     return this.getChildElements()
       .map(elem => (elem instanceof Negation) ? ['-', elem.inner] : ['+', elem])
-      .flatMap(( [sign,elem] ) => [sign, toStringWithParens(elem)])
+      .flatMap(( [sign,elem] ) => [sign, toAsciiMathWithParens(elem)])
       .filter((string, index) => !(index === 0 && string === '+'))
       .join(' ');
   }

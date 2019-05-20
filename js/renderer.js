@@ -41,7 +41,7 @@ export class Renderer {
 
   _renderWithParensIfNeeded(mathElem) {
     const dom = this.render(mathElem);
-    if (mathElem.parent.childNeedsParens(mathElem)) {
+    if (mathElem.parent.childNeedsParens(mathElem, 'display')) {
       return this._createParenContainer(dom);
     }
     return dom;

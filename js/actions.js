@@ -1,4 +1,7 @@
 import * as mathElems from  './math-elems.js';
+import { ModalDialog } from './modal-dialog.js';
+import * as asciiMathParser from './asciimath-parser.js';
+import { Renderer } from './renderer.js';
 
 
 // in this code, callbackResult means one of:
@@ -12,11 +15,20 @@ class Action {
     this._kind = kind;
     this.name = name;
     this.keyBinding = keyBinding;
-    this._callback = callback;
+    this._callback = async(...args) => {
+      const result = callback(...args);
+      return (result instanceof Promise) ? (await result) : result;
+    };
   }
 
   static ofSingleElement(name, keyBinding, callback) {
     return new this({ id: 'singleElement' }, name, keyBinding, callback);
+  }
+
+  // singleElement loops through all the selected elements if more than 1 element is selected
+  // this does nothing in that case
+  static ofSingleElementReally(name, keyBinding, callback) {
+    return new this({ id: 'singleElementReally' }, name, keyBinding, callback);
   }
 
   static ofNChildElements(name, keyBinding, n, callback) {
@@ -31,20 +43,25 @@ class Action {
   }
 
   // returns a Selection.select() argument array, or null for nothing done
-  run(selection) {
+  async run(selection) {
     const selected = selection.getSelectedElements()
 
-    if (this._kind.id === 'singleElement') {
+    if (this._kind.id === 'singleElement' || this._kind.id === 'singleElementReally') {
+      if (this._kind.id === 'singleElementReally' && selected.length > 1) {
+        return null;
+      }
+
       let somethingDone = false;
-      const toSelect = selected.flatMap(elem => {
-        const callbackResult = this._callback(elem);
+
+      const toSelect = (await Promise.all(selected.map(async(elem) => {
+        const callbackResult = await this._callback(elem);
         if (callbackResult === null) {
           return elem;
         }
 
         somethingDone = true;
         return callbackResult;
-      });
+      }))).flat(1);
 
       if (!somethingDone) {
         // toSelect should have same content as selection.getSelectedElements()
@@ -65,7 +82,7 @@ class Action {
         return null;
       }
 
-      const callbackResult = this._callback(...parentSet, ...selected);
+      const callbackResult = await this._callback(...parentSet, ...selected);
       if (callbackResult === null) {
         return null;
       }
@@ -79,19 +96,19 @@ class Action {
       );
 
       let somethingDone = false;
-      const toSelect = [ ... byParent.entries() ].flatMap( ([parent, children]) => {
+      const toSelect = (await Promise.all([ ... byParent.entries() ].map( async([parent, children]) => {
         if (children.length < 2) {
           return children;
         }
 
-        const callbackResult = this._callback(parent, children);
+        const callbackResult = await this._callback(parent, children);
         if (callbackResult === null) {
           return children;
         }
 
         somethingDone = true;
         return callbackResult;
-      });
+      }))).flat(1);
 
       if (!somethingDone) {
         return null;
@@ -127,6 +144,7 @@ ACTIONS.push(Action.ofSingleElement('Unnest', 'U', elem => {
   return childCopies;
 }));
 
+
 ACTIONS.push(Action.ofSingleElement('Expand', 'E', elem => {
   // a(b + c)d  -->  abd + acd
   if (elem instanceof mathElems.Product) {
@@ -151,6 +169,7 @@ ACTIONS.push(Action.ofSingleElement('Expand', 'E', elem => {
 
   return null;
 }));
+
 
 ACTIONS.push(Action.ofTwoOrMoreChildElements('Factor', 'F', (parent, children) => {
   if (!(parent instanceof mathElems.Sum)) {
@@ -210,6 +229,7 @@ ACTIONS.push(Action.ofTwoOrMoreChildElements('Factor', 'F', (parent, children) =
   return factoredYayFinallyThisIsDoneYayYay;
 }));
 
+
 ACTIONS.push(Action.ofSingleElement('Bring minus to front', 'B', elem => {
   if ( !(elem instanceof mathElems.Product)) {
     return null;
@@ -227,6 +247,7 @@ ACTIONS.push(Action.ofSingleElement('Bring minus to front', 'B', elem => {
   return newNegation;
 }));
 
+
 ACTIONS.push(Action.ofSingleElement('Undo bringing minus to front', 'Shift+B', elem => {
   if (!( (elem instanceof mathElems.Negation) && (elem.inner instanceof mathElems.Product) )) {
     return null;
@@ -238,6 +259,7 @@ ACTIONS.push(Action.ofSingleElement('Undo bringing minus to front', 'Shift+B', e
   elem.parent.replace(elem, productCopy);
   return productCopy;
 }));
+
 
 ACTIONS.push(Action.ofNChildElements('Swap', 'S', 2, (parent, child1, child2) => {
   if (!(parent instanceof mathElems.List)) {
@@ -252,6 +274,7 @@ ACTIONS.push(Action.ofNChildElements('Swap', 'S', 2, (parent, child1, child2) =>
   parent.replace(tempChild2, child1);
   return [child1, child2];
 }));
+
 
 function minWithKey(array, key) {
   if (array.length === 0) {
@@ -283,4 +306,63 @@ ACTIONS.push(Action.ofNChildElements('Cancel', 'C', 2, (parent, child1, child2) 
     minWithKey(Array.from(neighbors), child=>childArray.indexOf(child));
   parent.removeChildElements([ child1, child2 ]);
   return toSelect;
+}));
+
+
+ACTIONS.push(Action.ofSingleElementReally('Manual edit', 'M', async(elem) => {
+  const dialog = new ModalDialog("Manual edit", ["Apply", "Cancel"]);
+  const applyButton = dialog.buttons["Apply"];
+
+  dialog.contentDiv.innerHTML = '<input class="asciimath-edit"></input>';
+  const input = dialog.contentDiv.firstElementChild;
+  input.value = elem.toAsciiMath();
+  const renderer = new Renderer();
+
+  function onChanged() {
+    if (!dialog.contentDiv.lastElementChild.classList.contains('asciimath-edit')) {
+      dialog.contentDiv.removeChild(dialog.contentDiv.lastElementChild);
+    }
+
+    let parsed;
+    try {
+      parsed = asciiMathParser.parse(input.value);
+    } catch(e) {
+      if (!(e instanceof asciiMathParser.ParsingError)) {
+        throw e;
+      }
+
+      const p = document.createElement('p');
+      p.classList.add('asciimath-edit-error-message');
+      p.textContent = "Cannot parse math:\n" + e.message;
+      dialog.contentDiv.appendChild(p);
+      applyButton.disabled = true;
+      return;
+    }
+
+    applyButton.disabled = false;
+    dialog.contentDiv.appendChild(renderer.render(parsed));
+  }
+
+  input.addEventListener('input', onChanged);
+  input.addEventListener('keypress', event => {
+    if (event.key === 'Enter') {
+      dialog.pressButton("Apply");
+      event.preventDefault();
+    }
+    console.log(event.key);
+  });
+  onChanged();
+
+  // no idea why a timeout is needed, but it won't work without this :D
+  window.setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 50);
+
+  if ((await dialog.run()) === "Apply") {
+    const replacingElement = asciiMathParser.parse(input.value);
+    elem.parent.replace(elem, replacingElement);
+    return replacingElement;
+  }
+  return null;
 }));

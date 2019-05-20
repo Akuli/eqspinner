@@ -8,7 +8,12 @@ html {
     user-select: none;
 }
 
-div.math-elem-Sum, div.math-elem-Product, div.math-paren-container, div.math-elem-Sum > div {
+div.math-elem-Sum,
+div.math-elem-Negation,
+div.math-elem-Product,
+div.math-paren-container,
+div.math-elem-Sum > div
+{
     display: flex;
     flex-direction: row;
     align-items: baseline;
@@ -54,7 +59,7 @@ div.math-elem-Power > *:last-child {
     background-color: #afa;
 }
 
-#modal-dialog-container {
+.modal-dialog-container {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -66,36 +71,45 @@ div.math-elem-Power > *:last-child {
     height: 100%;
 }
 
-#modal-dialog-container.hidden {
+.modal-dialog-container.hidden {
     display: none;
 }
 
-#modal-dialog-container > div {
+.modal-dialog-container > div {
     display: flex;
     flex-direction: column;
     background: white;
     border-radius: 0.5em;
+    min-width: 25em;
+    min-height: 25em;
 }
 
-#modal-dialog-container > div > * {
+.modal-dialog-container > div > * {
     margin: 1em;
 }
 
-#modal-dialog-top-bar {
+.modal-dialog-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.modal-dialog-top-bar {
     display: flex;
 }
 
-#modal-dialog-title {
+.modal-dialog-title {
     margin-left: auto;
     margin-right: auto;
 }
 
-#modal-dialog-close-button {
+.modal-dialog-close-button {
     align-self: center;
     padding: 0.5em;
 }
 
-#modal-dialog-button-area {
+.modal-dialog-button-area {
     display: flex;
     padding: 0.5em;
     border-radius: 1.5em;
@@ -103,9 +117,24 @@ div.math-elem-Power > *:last-child {
     justify-content: space-evenly;
 }
 
-
-#modal-dialog-button-area > button {
+.modal-dialog-button-area > button {
     font-size: 1.2em;
     margin: 1em;
     width: 6em;
+}
+
+.asciimath-edit-error-message {
+    background-color: #f99;
+    padding: 1em;
+    border-radius: 0.5em;
+    width: 20em;
+}
+
+.asciimath-edit {
+    align-self: stretch;
+    font-family: monospace;
+}
+
+.asciimath-edit + * {
+    margin-top: 1em;
 }

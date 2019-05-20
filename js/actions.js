@@ -171,62 +171,75 @@ ACTIONS.push(Action.ofSingleElement('Expand', 'E', elem => {
 }));
 
 
+function getFactors(elem) {
+  if (elem instanceof mathElems.Negation) {
+    elem = elem.inner;
+  }
+  if (elem instanceof mathElems.Product) {
+    return elem.getChildElements();
+  }
+  return [elem];
+}
+
+// returns a copy
+function removeFactors(elem, badFactors) {
+  const negated = elem instanceof mathElems.Negation;
+  if (negated) {
+    elem = elem.inner;
+  }
+
+  const factors = getFactors(elem);
+  for (const bad of badFactors) {
+    const index = factors.findIndex(factor => factor.equals(bad));
+    if (index === -1) {
+      throw new Error("bad factor not found");
+    }
+    factors.splice(index, 1);
+  }
+
+  const result = new mathElems.Product( factors.map(factor => factor.copy()) );
+  return negated ? (new mathElems.Negation(result)) : result;
+}
+
+
 ACTIONS.push(Action.ofTwoOrMoreChildElements('Factor', 'F', (parent, children) => {
   if (!(parent instanceof mathElems.Sum)) {
     return null;
   }
 
-  // TODO: ax-bx  -->  (a-b)x
-  // TODO: -ax-bx -->  (-a-b)x
-  const factorArrays = new Map(children.map(child => [
-    child,
-    (child instanceof mathElems.Product) ? child.getChildElements() : [child],
-  ]));
+  // TODO: -ax-bx -->  -(a+b)x
 
-  const commonFactorMaps = [];    // items are maps: keys are children, values are .equal() factor elements
+  // values represent factors that have not been factored out yet  (*)
+  // this is important when there are duplicate factors
+  const factorArrays = new Map(children.map( child => [child, getFactors(child)] ));
+  console.log([...factorArrays.entries()].map(([k,v])=>[k,v.slice()]));
 
-  // welcome to this hell, good luck
-  for (const possibleCommonFactor of factorArrays.get(children[0])) {
-    let itReallyIsCommon = true;
-    const factorMap = new Map();
-    for (const [child, factors] of factorArrays.entries()) {
-      const factorsNotUsedYet = factors.filter(factor => ! commonFactorMaps.some(map => map.get(child)===factor));
-      const commonFactorInTheChild = factorsNotUsedYet.find(childFactor => childFactor.equals(possibleCommonFactor));
-      if (commonFactorInTheChild === undefined) {
-        itReallyIsCommon = false;
-        break;
+  let commonFactors = [];
+  for (const possibleCommonFactor of factorArrays.get(children[0]).slice()) {
+    if ([... factorArrays.values() ].every(
+          factorArray => factorArray.some(
+            factor => factor.equals(possibleCommonFactor)))) {
+      commonFactors.push(possibleCommonFactor);
+      for (const factorArray of factorArrays.values()) {
+        const i = factorArray.findIndex(factor => factor.equals(possibleCommonFactor));
+        if (i === -1) {
+          throw new Error("wut");
+        }
+        factorArray.splice(i, 1);   // (*)
       }
-      factorMap.set(child, commonFactorInTheChild);
-    }
-
-    if (itReallyIsCommon) {
-      commonFactorMaps.push(factorMap);
     }
   }
 
-  if (commonFactorMaps.length === 0) {
+  if (commonFactors.length === 0) {
     return null;
   }
 
-  const sumPart = new mathElems.Sum(
-    children
-    .map(child => {
-      const toBeRemoved = commonFactorMaps.map(map => map.get(child));
-      return factorArrays.get(child).filter(factor => !toBeRemoved.includes(factor));
-    })
-    .map(remainingFactors => remainingFactors.map(factor => factor.copy()))
-    .map(remainingFactorCopies => new mathElems.Product(remainingFactorCopies))
-  );
+  const sumPart = new mathElems.Sum( children.map(child => removeFactors(child, commonFactors)) );
+  const factored = new mathElems.Product([ sumPart, ... commonFactors.map(factor => factor.copy()) ]);
 
-  const theCommonFactors = commonFactorMaps
-    .map(map => [...map.values()])
-    .map(equalFactorElementArray => equalFactorElementArray[0])
-    .map(someFactorElement => someFactorElement.copy());
-
-  const factoredYayFinallyThisIsDoneYayYay = new mathElems.Product([sumPart, ...theCommonFactors]);
-  parent.replace(children[0], factoredYayFinallyThisIsDoneYayYay);
+  parent.replace(children[0], factored);
   parent.removeChildElements(children.slice(1));
-  return factoredYayFinallyThisIsDoneYayYay;
+  return factored;
 }));
 
 
